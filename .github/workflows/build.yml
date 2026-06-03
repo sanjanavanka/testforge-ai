@@ -17,8 +17,15 @@ jobs:
         with:
           node-version: '20'
       - run: npm install
-      - run: npm run build-win
-      - uses: softprops/action-gh-release@v2
+      - name: Build Windows EXE
+        run: npx electron-builder --win --publish never
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: TestForge-AI-Windows
+          path: dist/*.exe
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: v1.0.0-build${{ github.run_number }}
           name: TestForge AI v1.0.0 (Build ${{ github.run_number }})
