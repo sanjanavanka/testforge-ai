@@ -1,0 +1,29 @@
+name: Build Windows EXE
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm install
+      - run: npm run build-win
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.0-build${{ github.run_number }}
+          name: TestForge AI v1.0.0 (Build ${{ github.run_number }})
+          body: |
+            ## TestForge AI - Windows Build
+            Download the .exe below and double-click to install/run.
+          files: dist/*.exe
+          token: ${{ secrets.GITHUB_TOKEN }}
