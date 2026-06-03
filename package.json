@@ -1,0 +1,39 @@
+{
+  "name": "testforge-ai",
+  "version": "1.0.0",
+  "description": "TestForge AI - Automotive Test Case & Automation Generator",
+  "main": "main.js",
+  "author": "sanjanavanka",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "build-win": "electron-builder --win"
+  },
+  "devDependencies": {
+    "electron": "^31.0.0",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.testforge.ai",
+    "productName": "TestForge AI",
+    "directories": { "output": "dist" },
+    "files": ["main.js", "preload.js", "index.html"],
+    "win": {
+      "target": [
+        { "target": "nsis", "arch": ["x64"] },
+        { "target": "portable", "arch": ["x64"] }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "TestForge AI"
+    },
+    "portable": {
+      "artifactName": "TestForgeAI-Portable-${version}.exe"
+    }
+  }
+}
