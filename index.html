@@ -1,0 +1,837 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>TestForge AI — Automotive Test & Automation Generator</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter','Segoe UI',Arial,sans-serif; }
+  body { background:#F5F5F7; color:#1A237E; height:100vh; display:flex; flex-direction:column; overflow:hidden; }
+
+  /* Top Nav */
+  .topnav { background:#1A237E; color:#fff; display:flex; align-items:center; padding:0 20px; height:56px; box-shadow:0 2px 6px rgba(0,0,0,.15); flex-shrink:0; }
+  .topnav .logo { font-weight:700; font-size:18px; margin-right:30px; }
+  .topnav .logo span { color:#FF6F00; }
+  .topnav nav { display:flex; gap:4px; flex:1; flex-wrap:wrap; }
+  .topnav nav button { background:transparent; color:#fff; border:none; padding:8px 12px; border-radius:6px; cursor:pointer; font-size:13px; }
+  .topnav nav button:hover, .topnav nav button.active { background:rgba(255,255,255,.15); }
+  .topnav .user { font-size:13px; opacity:.9; }
+
+  /* Layout */
+  .layout { flex:1; display:flex; overflow:hidden; }
+  .sidebar { width:220px; background:#fff; border-right:1px solid #e0e0e0; padding:16px 0; overflow-y:auto; flex-shrink:0; }
+  .sidebar h4 { font-size:11px; text-transform:uppercase; color:#888; padding:12px 20px 6px; letter-spacing:1px; }
+  .sidebar a { display:block; padding:9px 20px; color:#333; text-decoration:none; font-size:14px; border-left:3px solid transparent; cursor:pointer; }
+  .sidebar a:hover { background:#f0f2ff; }
+  .sidebar a.active { background:#f0f2ff; border-left-color:#FF6F00; color:#1A237E; font-weight:600; }
+  .workspace { flex:1; overflow-y:auto; padding:24px; }
+
+  /* Status */
+  .statusbar { background:#263238; color:#b0bec5; font-size:12px; padding:6px 20px; display:flex; gap:24px; flex-shrink:0; flex-wrap:wrap; }
+  .statusbar .ok { color:#69F0AE; }
+
+  /* Cards */
+  .card { background:#fff; border-radius:10px; padding:20px; box-shadow:0 1px 3px rgba(0,0,0,.06); margin-bottom:18px; }
+  .card h2 { font-size:16px; margin-bottom:12px; color:#1A237E; }
+  .card h3 { font-size:14px; margin:12px 0 8px; color:#333; }
+
+  .kpis { display:grid; grid-template-columns:repeat(5,1fr); gap:14px; margin-bottom:18px; }
+  .kpi { background:#fff; border-radius:10px; padding:16px; box-shadow:0 1px 3px rgba(0,0,0,.06); }
+  .kpi .label { font-size:12px; color:#777; text-transform:uppercase; letter-spacing:.5px; }
+  .kpi .value { font-size:26px; font-weight:700; color:#1A237E; margin-top:4px; }
+  .kpi .delta { font-size:11px; color:#2E7D32; margin-top:4px; }
+
+  button.primary { background:#FF6F00; color:#fff; border:none; padding:9px 16px; border-radius:6px; cursor:pointer; font-size:13px; font-weight:600; }
+  button.primary:hover { background:#e65100; }
+  button.secondary { background:#fff; color:#1A237E; border:1px solid #1A237E; padding:8px 14px; border-radius:6px; cursor:pointer; font-size:13px; }
+  button.secondary:hover { background:#f0f2ff; }
+  button.danger { background:#fff; color:#C62828; border:1px solid #C62828; padding:8px 14px; border-radius:6px; cursor:pointer; font-size:13px; }
+  .actions { display:flex; gap:10px; margin-top:12px; flex-wrap:wrap; }
+
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th, td { text-align:left; padding:10px 12px; border-bottom:1px solid #eee; }
+  th { background:#f9fafc; color:#555; font-weight:600; font-size:12px; text-transform:uppercase; }
+  tr:hover { background:#fafbff; }
+  tr.clickable { cursor:pointer; }
+
+  .badge { display:inline-block; padding:3px 8px; border-radius:12px; font-size:11px; font-weight:600; margin:2px; }
+  .badge.green { background:#E8F5E9; color:#2E7D32; }
+  .badge.yellow { background:#FFF8E1; color:#F57F17; }
+  .badge.red { background:#FFEBEE; color:#C62828; }
+  .badge.blue { background:#E3F2FD; color:#1565C0; }
+  .badge.grey { background:#ECEFF1; color:#455A64; }
+
+  .gen-layout { display:grid; grid-template-columns:1fr 2fr 1fr; gap:14px; }
+  @media (max-width:1100px) { .gen-layout { grid-template-columns:1fr; } }
+  .pane { background:#fff; border-radius:10px; padding:16px; box-shadow:0 1px 3px rgba(0,0,0,.06); min-height:500px; }
+  .pane h3 { font-size:14px; margin-bottom:12px; padding-bottom:8px; border-bottom:1px solid #eee; color:#1A237E; }
+
+  .tabs { display:flex; gap:4px; border-bottom:2px solid #eee; margin-bottom:14px; flex-wrap:wrap; }
+  .tabs button { background:none; border:none; padding:8px 12px; cursor:pointer; font-size:13px; color:#555; border-bottom:2px solid transparent; margin-bottom:-2px; }
+  .tabs button.active { color:#1A237E; border-bottom-color:#FF6F00; font-weight:600; }
+
+  pre { background:#1e1e2e; color:#cdd6f4; padding:14px; border-radius:6px; font-family:'JetBrains Mono','Courier New',monospace; font-size:12px; overflow-x:auto; line-height:1.5; white-space:pre-wrap; }
+  code.keyword { color:#f38ba8; }
+  code.string { color:#a6e3a1; }
+  code.value { color:#89b4fa; }
+
+  .req-box { background:#f9fafc; border-left:4px solid #1A237E; padding:12px; border-radius:4px; font-size:13px; line-height:1.5; margin-bottom:12px; }
+  .req-meta { font-size:11px; color:#888; margin-bottom:6px; }
+
+  .field { margin-bottom:10px; }
+  .field label { font-size:11px; color:#777; text-transform:uppercase; display:block; margin-bottom:3px; }
+  .field .value { font-size:13px; color:#333; font-weight:500; }
+
+  .scenario { background:#f9fafc; border-radius:6px; padding:10px 12px; margin-bottom:8px; border-left:3px solid #FF6F00; font-size:13px; }
+  .scenario .stype { font-size:11px; color:#FF6F00; font-weight:700; text-transform:uppercase; }
+
+  .confidence-bar { height:8px; background:#eee; border-radius:4px; overflow:hidden; margin:6px 0; }
+  .confidence-bar .fill { height:100%; background:linear-gradient(90deg,#FF6F00,#2E7D32); }
+
+  .trace-graph { display:flex; align-items:center; justify-content:space-between; padding:30px 0; flex-wrap:wrap; gap:10px; }
+  .trace-node { background:#fff; border:2px solid #1A237E; padding:12px 18px; border-radius:10px; text-align:center; min-width:130px; box-shadow:0 2px 6px rgba(0,0,0,.08); }
+  .trace-node .ttype { font-size:10px; color:#888; text-transform:uppercase; }
+  .trace-node .tname { font-weight:600; font-size:13px; margin-top:4px; color:#1A237E; }
+  .trace-arrow { font-size:24px; color:#FF6F00; }
+
+  .cluster-mock { background:#0a0a0a; color:#FF6F00; border-radius:12px; padding:30px; text-align:center; font-family:monospace; margin:12px 0; }
+  .cluster-mock .telltale { font-size:40px; margin:10px; display:inline-block; }
+  .cluster-mock .telltale.on { color:#FF1744; animation:blink 1s infinite; }
+  @keyframes blink { 50% { opacity:.3; } }
+
+  .logs { background:#0a0a0a; color:#69F0AE; font-family:monospace; font-size:12px; padding:12px; border-radius:6px; height:240px; overflow-y:auto; }
+  .logs .err { color:#FF5252; }
+  .logs .warn { color:#FFD740; }
+
+  .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:900px) { .grid-2, .kpis { grid-template-columns:1fr 1fr; } }
+  @media (max-width:600px) { .grid-2, .kpis { grid-template-columns:1fr; } }
+
+  input, select, textarea { padding:8px 10px; border:1px solid #ddd; border-radius:6px; font-size:13px; font-family:inherit; width:100%; }
+  textarea { resize:vertical; min-height:80px; }
+  label.form-label { display:block; font-size:12px; color:#555; margin:8px 0 4px; font-weight:600; }
+
+  /* Modal */
+  .modal-bg { position:fixed; inset:0; background:rgba(0,0,0,.5); display:none; align-items:center; justify-content:center; z-index:1000; }
+  .modal-bg.show { display:flex; }
+  .modal { background:#fff; border-radius:10px; padding:24px; width:90%; max-width:500px; max-height:85vh; overflow-y:auto; }
+  .modal h2 { color:#1A237E; margin-bottom:14px; }
+
+  /* Toast */
+  .toast { position:fixed; bottom:50px; right:20px; background:#2E7D32; color:#fff; padding:12px 18px; border-radius:6px; box-shadow:0 4px 12px rgba(0,0,0,.2); z-index:2000; opacity:0; transition:opacity .3s; font-size:14px; }
+  .toast.show { opacity:1; }
+  .toast.err { background:#C62828; }
+</style>
+</head>
+<body>
+
+<div class="topnav">
+  <div class="logo">🔧 TestForge<span>AI</span></div>
+  <nav id="topnav">
+    <button data-view="dashboard" class="active">Dashboard</button>
+    <button data-view="projects">Projects</button>
+    <button data-view="requirements">Requirements</button>
+    <button data-view="generator">Generator</button>
+    <button data-view="automation">Automation</button>
+    <button data-view="visual">Visual Validation</button>
+    <button data-view="traceability">Traceability</button>
+    <button data-view="reports">Reports</button>
+    <button data-view="admin">Admin</button>
+  </nav>
+  <div class="user">👤 sanjanavanka</div>
+</div>
+
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <main class="workspace" id="workspace"></main>
+</div>
+
+<div class="statusbar">
+  <span>🟢 <span class="ok">Polarion Connected</span></span>
+  <span>Last Sync: <span id="lastSync">just now</span></span>
+  <span>Active Pilot: Cluster Telltales</span>
+  <span id="reqCount">5 requirements loaded</span>
+</div>
+
+<div class="modal-bg" id="modal">
+  <div class="modal" id="modalContent"></div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ===================================================================
+   TestForge AI — Complete self-contained tool
+   No backend, no dependencies. Uses localStorage for persistence.
+   =================================================================== */
+
+/* ---------------- Default Mock Data ---------------- */
+const DEFAULT_DATA = {
+  projects: [
+    { name:'EV Cluster Program', oem:'OEM-A', domain:'Cluster', status:'Active', owner:'sanjanavanka', updated:'Today' },
+    { name:'Cockpit Premium',     oem:'OEM-B', domain:'Cockpit + HUD', status:'Pilot', owner:'team-cockpit', updated:'2d ago' },
+    { name:'ADAS HMI',            oem:'OEM-C', domain:'ADAS HMI', status:'Planning', owner:'team-adas', updated:'1w ago' },
+  ],
+  requirements: [
+    { id:'CLU_001', title:'Seatbelt telltale on ignition', score:92, status:'Mapped',
+      text:'When ignition is ON and seatbelt is unbuckled, the seatbelt telltale shall illuminate within 1 second.',
+      trigger:'Ignition = ON AND Seatbelt = UNBUCKLED', expected:'Telltale_Seatbelt = ON', timing:'1000 ms', variants:['EU','US','EV'] },
+    { id:'CLU_002', title:'Low fuel warning', score:78, status:'Reviewed',
+      text:'If fuel level drops below 10%, the low fuel warning shall appear within 2 seconds.',
+      trigger:'FuelLevel < 10%', expected:'Warning_LowFuel = ON', timing:'2000 ms', variants:['ICE','Hybrid'] },
+    { id:'CLU_003', title:'Welcome screen on ignition', score:88, status:'Generated',
+      text:'When ignition transitions to ON, the cluster shall display the welcome animation within 2 seconds.',
+      trigger:'Ignition: OFF→ON', expected:'HMI_Screen = WELCOME', timing:'2000 ms', variants:['All'] },
+    { id:'CLU_004', title:'ABS telltale fault', score:45, status:'Needs Review',
+      text:'System shall properly indicate ABS warning quickly when fault is detected.',
+      trigger:'(ambiguous)', expected:'(ambiguous)', timing:'(missing)', variants:['All'] },
+    { id:'CLU_005', title:'Turn signal blink rate', score:95, status:'Generated',
+      text:'When turn indicator is active, telltale shall blink at 1.5 Hz (±0.1 Hz).',
+      trigger:'TurnSignal = LEFT|RIGHT', expected:'Telltale blinks @ 1.5Hz', timing:'periodic', variants:['All'] },
+  ],
+  tests: [
+    { id:'TC_001', req:'CLU_001', name:'Seatbelt telltale nominal',  type:'Nominal',  framework:'CAPL',   status:'Pass' },
+    { id:'TC_002', req:'CLU_001', name:'Seatbelt boundary 999ms',    type:'Boundary', framework:'Python', status:'Pass' },
+    { id:'TC_003', req:'CLU_001', name:'Seatbelt signal timeout',    type:'Negative', framework:'CAPL',   status:'Fail' },
+    { id:'TC_004', req:'CLU_001', name:'Seatbelt recovery',          type:'Recovery', framework:'Robot',  status:'Pass' },
+    { id:'TC_005', req:'CLU_001', name:'Airbag vs Seatbelt priority',type:'Conflict', framework:'CAPL',   status:'Pass' },
+  ],
+  vocab: [
+    { canonical:'IGNITION_ON',       a:'Ignition Active', b:'KL15 High',  c:'Terminal 15' },
+    { canonical:'TELLTALE_SEATBELT', a:'Seatbelt Lamp',   b:'SBR Icon',   c:'Belt Warning' },
+    { canonical:'READY_STATE',       a:'Drive Ready',     b:'HV Active',  c:'Vehicle Active' },
+  ],
+  selectedReqId: 'CLU_001'
+};
+
+/* ---------------- State (localStorage persistence) ---------------- */
+const STORE_KEY = 'testforge_ai_v1';
+function loadState() {
+  try {
+    const s = localStorage.getItem(STORE_KEY);
+    if (s) return JSON.parse(s);
+  } catch(e){}
+  return JSON.parse(JSON.stringify(DEFAULT_DATA));
+}
+function saveState() { localStorage.setItem(STORE_KEY, JSON.stringify(STATE)); }
+function resetState() { localStorage.removeItem(STORE_KEY); STATE = JSON.parse(JSON.stringify(DEFAULT_DATA)); render(); toast('Data reset to defaults'); }
+let STATE = loadState();
+
+/* ---------------- Helpers ---------------- */
+function toast(msg, isErr) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = 'toast show' + (isErr ? ' err':'');
+  setTimeout(()=> t.className='toast', 2500);
+}
+function openModal(html) { document.getElementById('modalContent').innerHTML = html; document.getElementById('modal').classList.add('show'); }
+function closeModal() { document.getElementById('modal').classList.remove('show'); }
+document.getElementById('modal').onclick = (e) => { if (e.target.id==='modal') closeModal(); };
+
+function selectedReq() { return STATE.requirements.find(r=>r.id===STATE.selectedReqId) || STATE.requirements[0]; }
+function downloadFile(name, content, mime='text/plain') {
+  const blob = new Blob([content], { type:mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = name; a.click();
+  URL.revokeObjectURL(url);
+}
+
+/* ---------------- Sidebar map ---------------- */
+const SIDEBAR_MAP = {
+  dashboard:    ['Overview','KPIs','Recent Activity','Alerts'],
+  projects:     ['All Projects','Active','Pilots','Archived'],
+  requirements: ['All Requirements','New','Reviewed','Mapped','Generated','Needs Review'],
+  generator:    ['Active Requirement','Test Intent (ITM)','Scenarios','Interface Mapping','Automation Output','Visual Validation'],
+  automation:   ['Test Suites','Environments','Schedules','Live Runs','Results'],
+  visual:       ['Cluster View','Telltale Library','OCR Checks','Timing Analyzer'],
+  traceability: ['Graph View','Coverage Matrix','Evidence Pack','Change Impact'],
+  reports:      ['Requirement Quality','Test Coverage','Automation Readiness','Compliance (ASPICE)','Productivity'],
+  admin:        ['Integrations','Vocabulary','Templates','Users','Data Management']
+};
+
+let currentView = 'dashboard';
+function renderSidebar(view) {
+  const items = SIDEBAR_MAP[view] || [];
+  document.getElementById('sidebar').innerHTML = `
+    <h4>${view.charAt(0).toUpperCase()+view.slice(1)}</h4>
+    ${items.map((i,idx)=>`<a class="${idx===0?'active':''}" onclick="this.parentNode.querySelectorAll('a').forEach(x=>x.classList.remove('active'));this.classList.add('active')">${i}</a>`).join('')}
+  `;
+}
+function setView(v) {
+  currentView = v;
+  document.querySelectorAll('#topnav button').forEach(b=>b.classList.toggle('active', b.dataset.view===v));
+  renderSidebar(v);
+  document.getElementById('workspace').innerHTML = (VIEWS[v] || (()=>'<div class="card">Not implemented</div>'))();
+  attachHandlers();
+}
+function render() { setView(currentView); document.getElementById('reqCount').textContent = STATE.requirements.length + ' requirements loaded'; }
+
+/* ========================  VIEWS  ======================== */
+const VIEWS = {};
+
+VIEWS.dashboard = () => {
+  const reqs = STATE.requirements;
+  const ready = Math.round(reqs.filter(r=>r.score>=80).length / Math.max(reqs.length,1) * 100);
+  return `
+  <h1 style="font-size:22px;margin-bottom:6px;">Welcome back, sanjanavanka 👋</h1>
+  <p style="color:#666;margin-bottom:18px;">Here's what's happening in your <b>EV Cluster Program</b> today.</p>
+
+  <div class="kpis">
+    <div class="kpi"><div class="label">Requirements</div><div class="value">${reqs.length}</div><div class="delta">+${Math.min(reqs.length,8)} this week</div></div>
+    <div class="kpi"><div class="label">Automation-Ready</div><div class="value">${ready}%</div><div class="delta">+5%</div></div>
+    <div class="kpi"><div class="label">Tests Generated</div><div class="value">${STATE.tests.length * 91}</div><div class="delta">+24</div></div>
+    <div class="kpi"><div class="label">Scripts Generated</div><div class="value">${STATE.tests.length * 62}</div><div class="delta">+18</div></div>
+    <div class="kpi"><div class="label">Trace Coverage</div><div class="value">94%</div><div class="delta">+2%</div></div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <h2>⚡ Quick Actions</h2>
+      <div class="actions">
+        <button class="primary" onclick="setView('requirements')">📥 Import Requirements</button>
+        <button class="primary" onclick="setView('generator')">⚙️ Open Generator</button>
+        <button class="secondary" onclick="setView('automation')">▶️ Run Automation</button>
+        <button class="secondary" onclick="setView('traceability')">🔗 View Traceability</button>
+      </div>
+    </div>
+    <div class="card">
+      <h2>🔔 Alerts</h2>
+      <div style="font-size:13px;line-height:1.9;">
+        🟡 <b>CLU_004</b> failed requirement linting — needs review<br/>
+        🔴 <b>TC_003</b> failed automation run on HIL bench #2<br/>
+        🟢 <b>CLU_001</b> change detected — 4 tests need regeneration<br/>
+        🔵 3 pending reviews assigned to you
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>📋 Recent Activity</h2>
+    <table>
+      <tr><th>Time</th><th>User</th><th>Action</th><th>Item</th></tr>
+      <tr><td>2 min ago</td><td>sanjanavanka</td><td>Generated tests</td><td>CLU_005</td></tr>
+      <tr><td>14 min ago</td><td>r.kumar</td><td>Approved review</td><td>CLU_003</td></tr>
+      <tr><td>1 hr ago</td><td>system</td><td>Synced from Polarion</td><td>8 new requirements</td></tr>
+      <tr><td>3 hr ago</td><td>j.smith</td><td>Failed test</td><td>TC_003</td></tr>
+    </table>
+  </div>`;
+};
+
+VIEWS.projects = () => `
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <h2>📂 Projects</h2>
+      <button class="primary" onclick="openModal(\`
+        <h2>New Project</h2>
+        <label class='form-label'>Project Name</label><input id='np_name' placeholder='e.g. Cluster 2026'/>
+        <label class='form-label'>OEM</label><input id='np_oem' placeholder='OEM-X'/>
+        <label class='form-label'>Domain</label><input id='np_domain' placeholder='Cluster / Cockpit / ADAS'/>
+        <div class='actions'><button class='primary' onclick='addProject()'>Create</button><button class='secondary' onclick='closeModal()'>Cancel</button></div>
+      \`)">+ New Project</button>
+    </div>
+    <table style="margin-top:14px;">
+      <tr><th>Project</th><th>OEM</th><th>Domain</th><th>Status</th><th>Owner</th><th>Updated</th></tr>
+      ${STATE.projects.map(p=>`
+        <tr><td><b>${p.name}</b></td><td>${p.oem}</td><td>${p.domain}</td>
+        <td><span class="badge ${p.status==='Active'?'green':p.status==='Pilot'?'blue':'grey'}">${p.status}</span></td>
+        <td>${p.owner}</td><td>${p.updated}</td></tr>`).join('')}
+    </table>
+  </div>
+`;
+function addProject() {
+  const n = document.getElementById('np_name').value.trim();
+  if (!n) return toast('Name required', true);
+  STATE.projects.unshift({ name:n, oem:document.getElementById('np_oem').value||'OEM-X', domain:document.getElementById('np_domain').value||'Cluster', status:'Planning', owner:'sanjanavanka', updated:'Just now' });
+  saveState(); closeModal(); render(); toast('Project created ✓');
+}
+
+VIEWS.requirements = () => {
+  const sel = selectedReq();
+  return `
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+      <h2>📑 Requirements</h2>
+      <div class="actions" style="margin:0;">
+        <button class="secondary" onclick="importReqs()">📥 Import (JSON/CSV)</button>
+        <button class="secondary" onclick="openModal(addReqModal())">+ Add Requirement</button>
+        <button class="secondary" onclick="lintAll()">🔍 Run Linting on All</button>
+        <button class="primary" onclick="setView('generator')">⚙️ Open in Generator</button>
+      </div>
+    </div>
+    <input type="file" id="reqFile" accept=".json,.csv" style="display:none" onchange="handleReqFile(event)"/>
+    <table style="margin-top:14px;">
+      <tr><th>ID</th><th>Title</th><th>Testability</th><th>Status</th><th>Variants</th><th>Action</th></tr>
+      ${STATE.requirements.map(r=>{
+        const cls = r.score>=85?'green':r.score>=60?'yellow':'red';
+        return `<tr class="clickable" onclick="selectReq('${r.id}')">
+          <td><b>${r.id}</b></td><td>${r.title}</td>
+          <td><span class="badge ${cls}">${r.score}%</span></td>
+          <td><span class="badge blue">${r.status}</span></td>
+          <td>${r.variants.join(', ')}</td>
+          <td><button class="secondary" onclick="event.stopPropagation();sendToGen('${r.id}')">→ Generator</button></td>
+        </tr>`;
+      }).join('')}
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>📝 Selected Requirement: ${sel.id}</h2>
+    <div class="req-box">
+      <div class="req-meta">${sel.id} · Polarion · Rev 1.3 · Owner: sanjanavanka</div>
+      "${sel.text}"
+    </div>
+    <h3>Linting Result</h3>
+    <span class="badge ${sel.score>=85?'green':sel.score>=60?'yellow':'red'}">Testability: ${sel.score}%</span>
+    ${sel.trigger!=='(ambiguous)' ? '<span class="badge green">✓ Trigger detected</span>' : '<span class="badge red">✗ Trigger ambiguous</span>'}
+    ${sel.expected!=='(ambiguous)' ? '<span class="badge green">✓ Expected result detected</span>' : '<span class="badge red">✗ Expected result ambiguous</span>'}
+    ${sel.timing!=='(missing)' ? '<span class="badge green">✓ Timing detected</span>' : '<span class="badge red">✗ Timing missing</span>'}
+  </div>`;
+};
+
+function addReqModal() {
+  return `<h2>Add Requirement</h2>
+    <label class='form-label'>ID</label><input id='ar_id' placeholder='CLU_999'/>
+    <label class='form-label'>Title</label><input id='ar_title' placeholder='Short title'/>
+    <label class='form-label'>Requirement Text</label><textarea id='ar_text' placeholder='When X, system shall Y within Z ms.'></textarea>
+    <div class='actions'><button class='primary' onclick='addReq()'>Add</button><button class='secondary' onclick='closeModal()'>Cancel</button></div>`;
+}
+function addReq() {
+  const id = document.getElementById('ar_id').value.trim();
+  const title = document.getElementById('ar_title').value.trim();
+  const text = document.getElementById('ar_text').value.trim();
+  if (!id || !title || !text) return toast('All fields required', true);
+  const lint = lintRequirement(text);
+  STATE.requirements.unshift({ id, title, text, ...lint, status:'New', variants:['All'] });
+  saveState(); closeModal(); render(); toast('Requirement added ✓');
+}
+function lintRequirement(text) {
+  const t = text.toLowerCase();
+  let score = 50;
+  const vague = ['quickly','properly','correctly','adequately','normally','soon'];
+  const hasVague = vague.some(v=>t.includes(v));
+  const hasTrigger = /\b(when|if|after|upon)\b/.test(t);
+  const hasShall = t.includes('shall');
+  const hasTiming = /\d+\s*(ms|second|s|hz)/.test(t);
+  if (hasTrigger) score += 15;
+  if (hasShall) score += 15;
+  if (hasTiming) score += 20;
+  if (hasVague) score -= 25;
+  score = Math.max(10, Math.min(99, score));
+  return {
+    score,
+    trigger: hasTrigger ? text.match(/\b(when|if|after|upon)[^,]+/i)?.[0] || 'detected' : '(ambiguous)',
+    expected: hasShall ? text.match(/shall[^.]+/i)?.[0] || 'detected' : '(ambiguous)',
+    timing: hasTiming ? text.match(/\d+\s*(ms|second|s|hz)/i)?.[0] : '(missing)'
+  };
+}
+function selectReq(id) { STATE.selectedReqId = id; saveState(); render(); }
+function sendToGen(id) { STATE.selectedReqId = id; saveState(); setView('generator'); }
+function lintAll() {
+  STATE.requirements.forEach(r => { const l = lintRequirement(r.text); r.score = l.score; });
+  saveState(); render(); toast('Linting complete on all requirements ✓');
+}
+function importReqs() { document.getElementById('reqFile').click(); }
+function handleReqFile(e) {
+  const file = e.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    try {
+      let imported = [];
+      if (file.name.endsWith('.json')) {
+        imported = JSON.parse(ev.target.result);
+      } else {
+        // simple CSV: id,title,text
+        const lines = ev.target.result.split(/\r?\n/).filter(l=>l.trim());
+        imported = lines.slice(1).map(l => {
+          const [id,title,text] = l.split(',');
+          const lint = lintRequirement(text||'');
+          return { id:id?.trim(), title:title?.trim(), text:text?.trim()||'', ...lint, status:'New', variants:['All'] };
+        });
+      }
+      STATE.requirements = imported.concat(STATE.requirements);
+      saveState(); render(); toast(`Imported ${imported.length} requirements ✓`);
+    } catch(err) { toast('Import failed: '+err.message, true); }
+  };
+  reader.readAsText(file);
+}
+
+VIEWS.generator = () => {
+  const sel = selectedReq();
+  return `
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px;">
+    <h1 style="font-size:20px;">⚙️ Test Generator — ${sel.id}</h1>
+    <div class="actions" style="margin:0;">
+      <select onchange="selectReq(this.value)" style="width:auto;">
+        ${STATE.requirements.map(r=>`<option value="${r.id}" ${r.id===sel.id?'selected':''}>${r.id} — ${r.title}</option>`).join('')}
+      </select>
+      <button class="secondary" onclick="toast('Regeneration complete ✓')">↻ Re-generate</button>
+      <button class="primary" onclick="approveGen()">✓ Approve & Publish</button>
+    </div>
+  </div>
+
+  <div class="gen-layout">
+    <div class="pane">
+      <h3>📑 Requirement</h3>
+      <div class="req-box"><div class="req-meta">${sel.id} · Rev 1.3</div>"${sel.text}"</div>
+      <div class="field"><label>Trigger</label><div class="value">${sel.trigger}</div></div>
+      <div class="field"><label>Expected Result</label><div class="value">${sel.expected}</div></div>
+      <div class="field"><label>Timing</label><div class="value">${sel.timing}</div></div>
+      <div class="field"><label>Variants</label><div class="value">${sel.variants.join(', ')}</div></div>
+      <div class="field"><label>Verification Mode</label><div class="value">Signal + Visual</div></div>
+    </div>
+
+    <div class="pane">
+      <div class="tabs" id="gen-tabs">
+        <button data-tab="itm" class="active">Test Intent (ITM)</button>
+        <button data-tab="scenarios">Scenarios</button>
+        <button data-tab="mapping">Mapping</button>
+        <button data-tab="output">Output</button>
+        <button data-tab="visual">Visual</button>
+      </div>
+      <div id="gen-tab-content"></div>
+    </div>
+
+    <div class="pane">
+      <h3>✅ Review & Approval</h3>
+      <div class="field"><label>Confidence Score</label>
+        <div class="confidence-bar"><div class="fill" style="width:${sel.score}%"></div></div>
+        <div class="value">${sel.score}% — ${sel.score>=85?'High':sel.score>=60?'Medium':'Low'} confidence</div>
+      </div>
+      <div class="field"><label>Source Clause</label><div class="value" style="font-size:12px;font-style:italic;">"${sel.text.slice(0,80)}..."</div></div>
+      <div class="field"><label>Assumptions</label><div class="value" style="font-size:12px;">• Vehicle stationary<br/>• Battery voltage nominal<br/>• No competing warnings</div></div>
+      <div class="field"><label>Reviewer</label><div class="value">r.kumar (pending)</div></div>
+      <div class="actions">
+        <button class="primary" onclick="approveGen()">✓ Approve</button>
+        <button class="secondary" onclick="toast('Opened editor')">✎ Edit</button>
+        <button class="danger" onclick="toast('Rejected — back to queue', true)">✗ Reject</button>
+      </div>
+    </div>
+  </div>`;
+};
+
+function approveGen() {
+  const sel = selectedReq();
+  sel.status = 'Generated';
+  saveState(); render(); toast(`${sel.id} approved and published ✓`);
+}
+
+const GEN_TABS = {
+  itm: () => {
+    const sel = selectedReq();
+    return `<h3 style="margin-bottom:8px;">Intermediate Test Model</h3>
+    <pre><code><span class="keyword">requirement_id:</span> <span class="string">${sel.id}</span>
+<span class="keyword">feature:</span> <span class="string">${sel.title.toLowerCase().replace(/\s+/g,'_')}</span>
+<span class="keyword">preconditions:</span>
+  - <span class="keyword">ignition:</span> <span class="value">OFF</span>
+  - <span class="keyword">vehicle_speed:</span> <span class="value">0</span>
+  - <span class="keyword">battery_voltage:</span> <span class="string">nominal</span>
+<span class="keyword">stimulus:</span>
+  - <span class="keyword">trigger:</span> <span class="value">${sel.trigger}</span>
+<span class="keyword">expected_results:</span>
+  - <span class="keyword">outcome:</span> <span class="value">${sel.expected}</span>
+  - <span class="keyword">timing:</span> <span class="value">${sel.timing}</span>
+<span class="keyword">variants:</span> [<span class="string">${sel.variants.join('</span>, <span class="string">')}</span>]
+<span class="keyword">verification_mode:</span> <span class="string">signal_plus_visual</span></code></pre>
+    <div class="actions"><button class="secondary" onclick="downloadFile('${sel.id}_itm.yaml','# ITM for ${sel.id}\\nrequirement_id: ${sel.id}\\nfeature: ${sel.title}\\ntrigger: ${sel.trigger}\\nexpected: ${sel.expected}\\ntiming: ${sel.timing}\\n')">⬇ Download ITM</button></div>`;
+  },
+  scenarios: () => `
+    <h3>Auto-Generated Scenarios (5)</h3>
+    <div class="scenario"><div class="stype">Nominal</div>Trigger applied → expected behavior within timing window</div>
+    <div class="scenario"><div class="stype">Boundary</div>Verify at exactly 99% of timing limit</div>
+    <div class="scenario"><div class="stype">Negative / Timeout</div>Signal timeout (>500 ms loss) → default state behavior</div>
+    <div class="scenario"><div class="stype">Recovery</div>Trigger condition removed → return to baseline within 500 ms</div>
+    <div class="scenario"><div class="stype">Conflict / Priority</div>Multiple simultaneous warnings → priority rule enforced</div>
+    <div class="actions"><button class="primary" onclick="toast('5 scenarios added to test suite')">+ Add to Suite</button></div>`,
+  mapping: () => `
+    <h3>Interface Mapping</h3>
+    <table>
+      <tr><th>Element</th><th>Mapped Interface</th><th>Source</th><th>Confidence</th></tr>
+      <tr><td>Ignition state</td><td><code>Ignition_Status</code> (CAN 0x100)</td><td>DBC</td><td><span class="badge green">98%</span></td></tr>
+      <tr><td>Seatbelt state</td><td><code>Seatbelt_Driver_Status</code> (CAN 0x102)</td><td>DBC</td><td><span class="badge green">96%</span></td></tr>
+      <tr><td>Telltale display</td><td><code>HMI.Telltale.Seatbelt</code></td><td>HMI Model</td><td><span class="badge green">94%</span></td></tr>
+      <tr><td>Timing source</td><td><code>System_Clock_ms</code></td><td>Platform</td><td><span class="badge green">100%</span></td></tr>
+    </table>`,
+  output: () => {
+    const sel = selectedReq();
+    const capl = `// CAPL — generated by TestForge AI for ${sel.id}
+testcase TC_${sel.id}_Nominal()
+{
+  setSignal(Ignition_Status, 0);
+  setSignal(Seatbelt_Driver_Status, 1);
+  testWaitForTimeout(100);
+
+  var dword t_start = timeNow();
+  setSignal(Ignition_Status, 1);
+
+  if (testWaitForSignalMatch(Telltale_Seatbelt, 1, 1000) != 1) {
+    testStepFail("Telltale did not turn ON within 1000 ms");
+  } else {
+    testStepPass("Telltale ON within timing window");
+  }
+}`;
+    const py = `# Python automation — TestForge AI for ${sel.id}
+import time
+from canoe import CANoe
+
+def test_${sel.id.toLowerCase()}_nominal(bus):
+    bus.set_signal('Ignition_Status', 0)
+    bus.set_signal('Seatbelt_Driver_Status', 1)
+    time.sleep(0.1)
+
+    t0 = time.time()
+    bus.set_signal('Ignition_Status', 1)
+
+    assert bus.wait_signal('Telltale_Seatbelt', 1, timeout=1.0), \\
+        "Telltale not ON within 1000 ms"
+    print(f"PASS: Telltale ON in {(time.time()-t0)*1000:.0f} ms")`;
+    return `
+    <h3>Multi-Framework Outputs</h3>
+    <div class="actions" style="margin-bottom:10px;">
+      <button class="secondary" onclick="downloadFile('${sel.id}.can',\`${capl.replace(/`/g,'\\`')}\`)">⬇ CAPL</button>
+      <button class="secondary" onclick="downloadFile('${sel.id}.py',\`${py.replace(/`/g,'\\`')}\`)">⬇ Python</button>
+      <button class="secondary" onclick="toast('Robot script downloaded')">⬇ Robot</button>
+      <button class="secondary" onclick="toast('Manual TC downloaded')">⬇ Manual TC</button>
+      <button class="primary" onclick="downloadAll()">⬇ Download All (ZIP-like)</button>
+    </div>
+    <pre><code><span class="keyword">// CAPL</span>
+${capl.replace(/</g,'&lt;')}</code></pre>`;
+  },
+  visual: () => `
+    <h3>Visual / HMI Validation</h3>
+    <div class="cluster-mock">
+      <div style="font-size:11px;color:#888;">CLUSTER DISPLAY (simulated)</div>
+      <div class="telltale on">🚨</div><div class="telltale">🛞</div><div class="telltale">⛽</div>
+      <div style="margin-top:10px;color:#fff;font-size:13px;">SEATBELT — FASTEN</div>
+    </div>
+    <table>
+      <tr><th>Check</th><th>Expected</th><th>Tolerance</th><th>Result</th></tr>
+      <tr><td>Icon visible</td><td>true</td><td>—</td><td><span class="badge green">PASS</span></td></tr>
+      <tr><td>Icon color</td><td>#FF1744</td><td>±10</td><td><span class="badge green">PASS</span></td></tr>
+      <tr><td>Blink rate</td><td>1.0 Hz</td><td>±0.1</td><td><span class="badge green">PASS</span></td></tr>
+      <tr><td>OCR text</td><td>"FASTEN"</td><td>exact</td><td><span class="badge green">PASS</span></td></tr>
+    </table>`
+};
+
+function downloadAll() {
+  const sel = selectedReq();
+  const bundle = `# TestForge AI — Generated Bundle for ${sel.id}\n\n## Requirement\n${sel.text}\n\n## ITM\nfeature: ${sel.title}\ntrigger: ${sel.trigger}\nexpected: ${sel.expected}\ntiming: ${sel.timing}\n\n## Scenarios\n- Nominal\n- Boundary\n- Negative/Timeout\n- Recovery\n- Conflict\n\n(Bundled output — in production this would be a ZIP with CAPL, Python, Robot, manual TC)`;
+  downloadFile(`${sel.id}_bundle.txt`, bundle);
+  toast('Bundle downloaded ✓');
+}
+
+VIEWS.automation = () => `
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+      <h2>🤖 Automation Execution</h2>
+      <div class="actions" style="margin:0;">
+        <select style="width:auto;"><option>CANoe Bench #1</option><option>HIL Bench #2</option><option>SIL Local</option></select>
+        <button class="primary" onclick="runAutomation()">▶ Run All</button>
+      </div>
+    </div>
+    <table style="margin-top:14px;">
+      <tr><th>Test ID</th><th>Req</th><th>Name</th><th>Type</th><th>Framework</th><th>Status</th></tr>
+      ${STATE.tests.map(t=>`<tr>
+        <td><b>${t.id}</b></td><td>${t.req}</td><td>${t.name}</td>
+        <td><span class="badge grey">${t.type}</span></td><td>${t.framework}</td>
+        <td><span class="badge ${t.status==='Pass'?'green':'red'}">${t.status}</span></td>
+      </tr>`).join('')}
+    </table>
+  </div>
+  <div class="card">
+    <h2>📜 Live Execution Logs</h2>
+    <div class="logs" id="logBox">Click "Run All" to start execution...</div>
+  </div>
+`;
+function runAutomation() {
+  const log = document.getElementById('logBox');
+  log.innerHTML = '';
+  const lines = [
+    '[INFO] Starting suite: Seatbelt_Telltale (5 tests)',
+    '[INFO] Connecting to CANoe Bench #1... OK',
+    '[PASS] TC_001 Seatbelt nominal — PASS (842 ms)',
+    '[PASS] TC_002 Boundary 999ms — PASS (995 ms)',
+    '<span class="err">[FAIL] TC_003 Signal timeout — FAIL (default state not asserted)</span>',
+    '[PASS] TC_004 Recovery — PASS (412 ms)',
+    '[PASS] TC_005 Airbag priority — PASS (1.2 s)',
+    '<span class="warn">[INFO] Suite complete: 4 PASS / 1 FAIL</span>',
+    '[INFO] Evidence pack generated → /reports/CLU_001_run_142.pdf'
+  ];
+  let i = 0;
+  const interval = setInterval(() => {
+    if (i >= lines.length) { clearInterval(interval); toast('Execution complete ✓'); return; }
+    log.innerHTML += lines[i] + '<br/>'; log.scrollTop = log.scrollHeight; i++;
+  }, 500);
+}
+
+VIEWS.visual = () => `
+  <div class="card">
+    <h2>🖼️ Visual Validation Studio — Cluster Display</h2>
+    <div class="grid-2">
+      <div><h3>Live Capture</h3>
+        <div class="cluster-mock">
+          <div style="font-size:11px;color:#888;">LIVE FROM HIL CAMERA</div>
+          <div class="telltale on">🚨</div><div class="telltale">🛞</div><div class="telltale on">⛽</div>
+          <div style="margin-top:14px;color:#fff;font-size:13px;">SEATBELT — FASTEN</div>
+          <div style="color:#FFD740;font-size:11px;">LOW FUEL</div>
+        </div>
+      </div>
+      <div><h3>Reference Baseline</h3>
+        <div class="cluster-mock">
+          <div style="font-size:11px;color:#888;">EXPECTED</div>
+          <div class="telltale on">🚨</div><div class="telltale">🛞</div><div class="telltale">⛽</div>
+          <div style="margin-top:14px;color:#fff;font-size:13px;">SEATBELT — FASTEN</div>
+        </div>
+      </div>
+    </div>
+    <h3>Diff Result</h3>
+    <span class="badge yellow">⚠ Unexpected telltale: LOW FUEL active</span>
+    <span class="badge green">✓ Seatbelt icon correct</span>
+    <span class="badge green">✓ OCR text matches</span>
+    <span class="badge green">✓ Color tolerance within limits</span>
+    <div class="actions"><button class="primary" onclick="toast('Diff report downloaded ✓');downloadFile('visual_diff.txt','Visual Diff Report\\n- Unexpected: LOW FUEL\\n- Seatbelt: OK\\n- OCR: OK')">⬇ Download Diff Report</button></div>
+  </div>
+`;
+
+VIEWS.traceability = () => `
+  <div class="card">
+    <h2>🔗 End-to-End Traceability</h2>
+    <div class="trace-graph">
+      <div class="trace-node"><div class="ttype">Requirement</div><div class="tname">CLU_001 v1.3</div></div>
+      <div class="trace-arrow">→</div>
+      <div class="trace-node"><div class="ttype">Test Intent</div><div class="tname">ITM_CLU_001</div></div>
+      <div class="trace-arrow">→</div>
+      <div class="trace-node"><div class="ttype">Test Cases</div><div class="tname">5 tests</div></div>
+      <div class="trace-arrow">→</div>
+      <div class="trace-node"><div class="ttype">Scripts</div><div class="tname">CAPL + Python</div></div>
+      <div class="trace-arrow">→</div>
+      <div class="trace-node"><div class="ttype">Execution</div><div class="tname">4 PASS / 1 FAIL</div></div>
+    </div>
+    <div class="actions">
+      <button class="primary" onclick="downloadEvidence()">📄 Export Evidence Pack</button>
+      <button class="secondary" onclick="toast('Change impact: 4 tests affected')">🔍 Change Impact</button>
+      <button class="secondary" onclick="toast('Coverage matrix opened')">📊 Coverage Matrix</button>
+    </div>
+  </div>
+  <div class="card">
+    <h2>📊 Coverage Matrix</h2>
+    <table>
+      <tr><th>Requirement</th><th>EU</th><th>US</th><th>EV</th><th>Overall</th></tr>
+      <tr><td>CLU_001</td><td><span class="badge green">100%</span></td><td><span class="badge green">100%</span></td><td><span class="badge yellow">80%</span></td><td><span class="badge green">93%</span></td></tr>
+      <tr><td>CLU_002</td><td><span class="badge green">100%</span></td><td><span class="badge yellow">75%</span></td><td><span class="badge red">0%</span></td><td><span class="badge yellow">58%</span></td></tr>
+      <tr><td>CLU_003</td><td><span class="badge green">100%</span></td><td><span class="badge green">100%</span></td><td><span class="badge green">100%</span></td><td><span class="badge green">100%</span></td></tr>
+    </table>
+  </div>
+`;
+function downloadEvidence() {
+  const content = `TESTFORGE AI — EVIDENCE PACK
+Generated: ${new Date().toISOString()}
+Project: EV Cluster Program
+
+REQUIREMENTS COVERED: ${STATE.requirements.length}
+TESTS EXECUTED: ${STATE.tests.length}
+PASS RATE: ${Math.round(STATE.tests.filter(t=>t.status==='Pass').length/STATE.tests.length*100)}%
+
+TRACEABILITY:
+${STATE.tests.map(t=>`  ${t.req} → ${t.id} (${t.framework}) → ${t.status}`).join('\n')}
+
+COMPLIANCE: ASPICE SWE.5/SWE.6 evidence-ready
+`;
+  downloadFile('evidence_pack.txt', content);
+  toast('Evidence pack downloaded ✓');
+}
+
+VIEWS.reports = () => `
+  <div class="kpis">
+    <div class="kpi"><div class="label">Req Quality</div><div class="value">82%</div></div>
+    <div class="kpi"><div class="label">Test Coverage</div><div class="value">94%</div></div>
+    <div class="kpi"><div class="label">Automation Ready</div><div class="value">78%</div></div>
+    <div class="kpi"><div class="label">ASPICE Evidence</div><div class="value">96%</div></div>
+    <div class="kpi"><div class="label">Time Saved</div><div class="value">412h</div></div>
+  </div>
+  <div class="card">
+    <h2>📊 Engineer Productivity (last 30 days)</h2>
+    <table>
+      <tr><th>Metric</th><th>Before</th><th>With TestForge</th><th>Improvement</th></tr>
+      <tr><td>Avg time per test case</td><td>2.5 hours</td><td>12 minutes</td><td><span class="badge green">-92%</span></td></tr>
+      <tr><td>Variants covered per req</td><td>1.2</td><td>4.8</td><td><span class="badge green">+300%</span></td></tr>
+      <tr><td>Edge case coverage</td><td>34%</td><td>89%</td><td><span class="badge green">+162%</span></td></tr>
+      <tr><td>Requirement-to-test trace</td><td>61%</td><td>98%</td><td><span class="badge green">+60%</span></td></tr>
+      <tr><td>Defects caught pre-release</td><td>baseline</td><td>+44%</td><td><span class="badge green">+44%</span></td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h2>📑 Available Reports</h2>
+    <div class="actions">
+      <button class="secondary" onclick="downloadFile('req_quality.txt','Requirement Quality Report\\nAverage score: 82%')">📄 Requirement Quality</button>
+      <button class="secondary" onclick="downloadFile('test_coverage.txt','Test Coverage Report\\nOverall: 94%')">📄 Test Coverage</button>
+      <button class="secondary" onclick="downloadFile('aspice.txt','ASPICE SWE.5/SWE.6 Evidence Pack\\n96% compliance')">📄 ASPICE Evidence</button>
+      <button class="secondary" onclick="downloadFile('iso26262.txt','ISO 26262 Trace Report')">📄 ISO 26262 Trace</button>
+      <button class="secondary" onclick="downloadFile('productivity.txt','Productivity Report\\n412h saved')">📄 Productivity</button>
+    </div>
+  </div>
+`;
+
+VIEWS.admin = () => `
+  <div class="card">
+    <h2>🔌 Integrations</h2>
+    <table>
+      <tr><th>System</th><th>Type</th><th>Status</th><th>Last Sync</th><th>Action</th></tr>
+      <tr><td>Polarion</td><td>ALM</td><td><span class="badge green">Connected</span></td><td>2 min ago</td><td><button class="secondary" onclick="toast('Sync triggered ✓')">Sync</button></td></tr>
+      <tr><td>DOORS</td><td>ALM</td><td><span class="badge grey">Disabled</span></td><td>—</td><td><button class="secondary" onclick="toast('DOORS enabled ✓')">Enable</button></td></tr>
+      <tr><td>Vector CANoe</td><td>Automation</td><td><span class="badge green">Connected</span></td><td>5 min ago</td><td><button class="secondary" onclick="toast('Connection OK ✓')">Test</button></td></tr>
+      <tr><td>dSPACE HIL</td><td>HIL</td><td><span class="badge green">Connected</span></td><td>1 min ago</td><td><button class="secondary" onclick="toast('HIL OK ✓')">Test</button></td></tr>
+      <tr><td>Azure DevOps</td><td>CI/CD</td><td><span class="badge green">Connected</span></td><td>10 min ago</td><td><button class="secondary" onclick="toast('CI/CD OK ✓')">Test</button></td></tr>
+      <tr><td>Jenkins</td><td>CI/CD</td><td><span class="badge yellow">Auth issue</span></td><td>2 hr ago</td><td><button class="primary" onclick="toast('Fixed ✓')">Fix</button></td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h2>📖 OEM Vocabulary Dictionary</h2>
+    <table>
+      <tr><th>Canonical Term</th><th>OEM-A</th><th>OEM-B</th><th>OEM-C</th></tr>
+      ${STATE.vocab.map(v=>`<tr><td><code>${v.canonical}</code></td><td>${v.a}</td><td>${v.b}</td><td>${v.c}</td></tr>`).join('')}
+    </table>
+    <div class="actions"><button class="primary" onclick="toast('Add term dialog (demo)')">+ Add Term</button></div>
+  </div>
+  <div class="card">
+    <h2>💾 Data Management</h2>
+    <p style="font-size:13px;color:#666;margin-bottom:10px;">All your data is stored locally in your browser. You can export it as backup or reset to defaults.</p>
+    <div class="actions">
+      <button class="secondary" onclick="exportData()">⬇ Export All Data (JSON)</button>
+      <button class="secondary" onclick="document.getElementById('importData').click()">📥 Import Data</button>
+      <input type="file" id="importData" accept=".json" style="display:none" onchange="importData(event)"/>
+      <button class="danger" onclick="if(confirm('Reset all data to defaults?'))resetState()">🗑 Reset All Data</button>
+    </div>
+  </div>
+`;
+function exportData() {
+  downloadFile('testforge_backup_'+new Date().toISOString().slice(0,10)+'.json', JSON.stringify(STATE, null, 2), 'application/json');
+  toast('Data exported ✓');
+}
+function importData(e) {
+  const f = e.target.files[0]; if (!f) return;
+  const r = new FileReader();
+  r.onload = (ev) => {
+    try { STATE = JSON.parse(ev.target.result); saveState(); render(); toast('Data imported ✓'); }
+    catch(err) { toast('Import failed: '+err.message, true); }
+  };
+  r.readAsText(f);
+}
+
+/* ---------------- Handlers ---------------- */
+function attachHandlers() {
+  const tabs = document.getElementById('gen-tabs');
+  if (tabs) {
+    const renderTab = (name) => {
+      document.getElementById('gen-tab-content').innerHTML = GEN_TABS[name]();
+      tabs.querySelectorAll('button').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
+    };
+    tabs.querySelectorAll('button').forEach(b => b.onclick = () => renderTab(b.dataset.tab));
+    renderTab('itm');
+  }
+}
+
+document.querySelectorAll('#topnav button').forEach(b => b.onclick = () => setView(b.dataset.view));
+setView('dashboard');
+</script>
+
+</body>
+</html>
