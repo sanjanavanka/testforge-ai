@@ -274,10 +274,26 @@ const DEFAULT_DATA = {
 const STORE_KEY = 'testforge_ai_v1';
 const DOCTOR_SAMPLE = 'System shall properly indicate ABS warning quickly when fault is detected.';
 const DOCTOR_VAGUE_WORDS = ['quickly','properly','correctly','adequately','normally','soon','appropriate','sufficient'];
+const TRIGGER_PATTERN = /\b(when|if|after|upon)\b/i;
+const TIMING_PATTERN = /\d+(?:\.\d+)?\s*(ms|second|seconds|s|hz)/i;
+const UNITS_PATTERN = /\b(ms|s|hz|%|v|km\/h)\b/i;
+function coerceState(raw) {
+  const base = JSON.parse(JSON.stringify(DEFAULT_DATA));
+  if (!raw || typeof raw !== 'object') return base;
+  return {
+    ...base,
+    ...raw,
+    projects: Array.isArray(raw.projects) ? raw.projects : base.projects,
+    requirements: Array.isArray(raw.requirements) ? raw.requirements : base.requirements,
+    tests: Array.isArray(raw.tests) ? raw.tests : base.tests,
+    vocab: Array.isArray(raw.vocab) ? raw.vocab : base.vocab,
+    scenarios: Array.isArray(raw.scenarios) ? raw.scenarios : base.scenarios
+  };
+}
 function loadState() {
   try {
     const s = localStorage.getItem(STORE_KEY);
-    if (s) return JSON.parse(s);
+    if (s) return coerceState(JSON.parse(s));
   } catch(e){}
   return JSON.parse(JSON.stringify(DEFAULT_DATA));
 }
@@ -312,6 +328,12 @@ function downloadFile(name, content, mime='text/plain') {
   const a = document.createElement('a');
   a.href = url; a.download = name; a.click();
   URL.revokeObjectURL(url);
+}
+function hasMeasurableOutcome(text) {
+  const afterShall = text.match(/\bshall\b\s+(.+)/i)?.[1];
+  if (!afterShall) return false;
+  const tokens = afterShall.replace(/[^a-z0-9_<\[\]\-]+/gi, ' ').trim().split(/\s+/).filter(Boolean);
+  return tokens.length >= 2 && !DOCTOR_VAGUE_WORDS.includes(tokens[0].toLowerCase());
 }
 
 /* ---------------- Sidebar map ---------------- */
@@ -642,6 +664,7 @@ VIEWS.dashboard = () => {
   const reqs = STATE.requirements;
   const ready = Math.round(reqs.filter(r=>r.score>=80).length / Math.max(reqs.length,1) * 100);
   const avgQuality = Math.round(reqs.reduce((sum, r) => sum + (Number(r.score) || 0), 0) / Math.max(reqs.length, 1));
+  const doctorReviewCount = reqs.filter(r => r.score < 85).length;
   return `
   <h1 style="font-size:22px;margin-bottom:6px;">Welcome back, sanjanavanka 👋</h1>
   <p style="color:#666;margin-bottom:18px;">Here's what's happening in your <b>EV Cluster Program</b> today.</p>
@@ -675,7 +698,7 @@ VIEWS.dashboard = () => {
       <h2>🔔 Alerts</h2>
       <div style="font-size:13px;line-height:1.9;">
         🩺 <b>CLU_004</b> needs Doctor review (score: 45%)<br/>
-        🟡 <b>CLU_004</b> failed requirement linting — needs review<br/>
+        🟡 <b>${doctorReviewCount}</b> requirements remain below 85% quality<br/>
         🔴 <b>TC_003</b> failed automation run on HIL bench #2<br/>
         🟢 <b>CLU_001</b> change detected — 4 tests need regeneration<br/>
         🔵 3 pending reviews assigned to you
@@ -792,9 +815,9 @@ function lintRequirement(text) {
   let score = 50;
   const vague = DOCTOR_VAGUE_WORDS;
   const hasVague = vague.some(v=>t.includes(v));
-  const hasTrigger = /\b(when|if|after|upon)\b/.test(t);
+  const hasTrigger = TRIGGER_PATTERN.test(t);
   const hasShall = t.includes('shall');
-  const hasTiming = /\d+(?:\.\d+)?\s*(ms|second|seconds|s|hz|%|v|km\/h)/.test(t);
+  const hasTiming = TIMING_PATTERN.test(t);
   if (hasTrigger) score += 15;
   if (hasShall) score += 15;
   if (hasTiming) score += 20;
@@ -804,7 +827,7 @@ function lintRequirement(text) {
     score,
     trigger: hasTrigger ? text.match(/\b(when|if|after|upon)[^,]+/i)?.[0] || 'detected' : '(ambiguous)',
     expected: hasShall ? text.match(/shall[^.]+/i)?.[0] || 'detected' : '(ambiguous)',
-    timing: hasTiming ? text.match(/\d+(?:\.\d+)?\s*(ms|second|seconds|s|hz|%|v|km\/h)/i)?.[0] : '(missing)'
+    timing: hasTiming ? text.match(TIMING_PATTERN)?.[0] : '(missing)'
   };
 }
 function selectReq(id) { STATE.selectedReqId = id; saveState(); render(); }
@@ -849,11 +872,11 @@ function handleReqFile(e) {
 function doctorUpdate(text) {
   const result = lintRequirement(text);
   const foundVague = DOCTOR_VAGUE_WORDS.filter(v => text.toLowerCase().includes(v));
-  const hasTrigger = /\b(when|if|after|upon)\b/i.test(text);
+  const hasTrigger = TRIGGER_PATTERN.test(text);
   const hasShall = /\bshall\b/i.test(text);
-  const hasTiming = /\d+(?:\.\d+)?\s*(ms|second|seconds|s|hz|%|v|km\/h)/i.test(text);
-  const hasUnits = /\b(ms|s|hz|%|v|km\/h)\b/i.test(text);
-  const hasExpected = /\bshall\s+(?!quickly\b|properly\b|correctly\b|adequately\b|normally\b|soon\b|appropriate\b|sufficient\b)[a-z][a-z0-9_-]*\s+[a-z0-9_<\[]/i.test(text);
+  const hasTiming = TIMING_PATTERN.test(text);
+  const hasUnits = UNITS_PATTERN.test(text);
+  const hasExpected = hasMeasurableOutcome(text);
   const scoreFill = document.getElementById('doc-fill');
   const scoreText = document.getElementById('doc-score');
   const scoreTone = result.score >= 85 ? '#2E7D32' : result.score >= 60 ? '#F57F17' : '#C62828';
@@ -882,13 +905,13 @@ function doctorUpdate(text) {
 function buildDoctorRewrite(text, flags={}) {
   const source = (text || '').trim() || DOCTOR_SAMPLE;
   let rewrite = source;
-  if (!flags.hasTrigger && !/\b(when|if|after|upon)\b/i.test(rewrite)) rewrite = `When <CONDITION>, ${rewrite.charAt(0).toLowerCase() + rewrite.slice(1)}`;
+  if (!flags.hasTrigger && !TRIGGER_PATTERN.test(rewrite)) rewrite = `When <CONDITION>, ${rewrite.charAt(0).toLowerCase() + rewrite.slice(1)}`;
   if (!(flags.hasShall || /\bshall\b/i.test(rewrite))) {
     if (/\b(the\s+)?(system|cluster|hmi)\b/i.test(rewrite)) rewrite = rewrite.replace(/\b(the\s+)?(system|cluster|hmi)\b/i, '$& shall');
     else rewrite = rewrite.replace(/^([A-Z][^,]*)/, '$1 shall');
   }
   DOCTOR_VAGUE_WORDS.forEach(v => { rewrite = rewrite.replace(new RegExp(`\\b${v}\\b`, 'gi'), '[SPECIFY]'); });
-  if (!(flags.hasTiming || /\d+(?:\.\d+)?\s*(ms|second|seconds|s|hz|%|v|km\/h)/i.test(rewrite))) rewrite = rewrite.replace(/\.\s*$/, '') + ' within <TIMING> ms.';
+  if (!(flags.hasTiming || TIMING_PATTERN.test(rewrite))) rewrite = rewrite.replace(/\.\s*$/, '') + ' within <TIMING> ms.';
   return rewrite;
 }
 
@@ -1476,7 +1499,7 @@ function importData(e) {
   const f = e.target.files[0]; if (!f) return;
   const r = new FileReader();
   r.onload = (ev) => {
-    try { STATE = JSON.parse(ev.target.result); normalizeStateShape(); saveState(); render(); toast('Data imported ✓'); }
+    try { STATE = coerceState(JSON.parse(ev.target.result)); normalizeStateShape(); saveState(); render(); toast('Data imported ✓'); }
     catch(err) { toast('Import failed: '+err.message, true); }
   };
   r.readAsText(f);
