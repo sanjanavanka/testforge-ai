@@ -137,6 +137,32 @@
                       background: rgba(26,35,126,0.95); color: white; padding: 12px 24px;
                       border-radius: 24px; font-size: 16px; z-index: 600; max-width: 80%;
                       box-shadow: 0 4px 16px rgba(0,0,0,0.3); }
+  .doctor-layout, .impact-layout { display:grid; grid-template-columns:1.1fr .9fr; gap:14px; }
+  .impact-counters { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; }
+  .doctor-check { display:flex; justify-content:space-between; gap:12px; padding:8px 0; border-bottom:1px solid #eee; font-size:13px; }
+  .diff-box { background:#f9fafc; border:1px solid #e6e9f5; border-radius:8px; padding:14px; line-height:1.8; color:#333; }
+  @media (max-width:900px) { .doctor-layout, .impact-layout, .impact-counters { grid-template-columns:1fr; } }
+  .buddy { position: fixed; bottom: 30px; right: 20px; width: 280px; background: #fff;
+           border: 2px solid #FF6F00; border-radius: 14px; box-shadow: 0 8px 24px rgba(255,111,0,0.25);
+           z-index: 400; font-size: 13px; transition: all 0.3s; }
+  .buddy.minimized { width: 56px; height: 56px; border-radius: 50%; padding: 0;
+                     display: flex; align-items: center; justify-content: center;
+                     font-size: 28px; cursor: pointer; }
+  .buddy.minimized .buddy-body, .buddy.minimized .buddy-header { display: none; }
+  .buddy.minimized::before { content: '🤖'; }
+  .buddy-header { background: linear-gradient(135deg, #FF6F00, #FF8F00); color: white;
+                  padding: 10px 14px; border-radius: 12px 12px 0 0;
+                  display: flex; align-items: center; gap: 8px; }
+  .buddy-header .b-title { flex: 1; font-weight: 700; font-size: 14px; }
+  .buddy-header .b-btn { background: rgba(255,255,255,0.2); border: none; color: white;
+                         width: 22px; height: 22px; border-radius: 4px; cursor: pointer; font-size: 14px; }
+  .buddy-body { padding: 14px; max-height: 320px; overflow-y: auto; }
+  .buddy-tip { background: #fff8e1; border-left: 3px solid #FF6F00; padding: 8px 10px;
+               margin: 6px 0; border-radius: 4px; font-size: 12px; line-height: 1.4; }
+  .buddy-action { background: #1A237E; color: white; border: none; padding: 8px 14px;
+                  border-radius: 6px; cursor: pointer; font-size: 12px; width: 100%;
+                  margin-top: 8px; font-weight: 600; }
+  .buddy-action:hover { background: #303F9F; }
 
   /* Modal */
   .modal-bg { position:fixed; inset:0; background:rgba(0,0,0,.5); display:none; align-items:center; justify-content:center; z-index:1000; }
@@ -158,11 +184,13 @@
     <button data-view="dashboard" class="active">Dashboard</button>
     <button data-view="projects">Projects</button>
     <button data-view="requirements">Requirements</button>
+    <button data-view="doctor">🩺 Doctor</button>
     <button data-view="generator">Generator</button>
     <button data-view="automation">Automation</button>
     <button data-view="visual">Visual Validation</button>
     <button data-view="bench">🎮 Bench</button>
     <button data-view="traceability">Traceability</button>
+    <button data-view="impact">⏰ Impact</button>
     <button data-view="reports">Reports</button>
     <button data-view="admin">Admin</button>
   </nav>
@@ -173,6 +201,7 @@
   <aside class="sidebar" id="sidebar"></aside>
   <main class="workspace" id="workspace"></main>
 </div>
+<div id="buddy" class="buddy"></div>
 
 <div class="statusbar">
   <span>🟢 <span class="ok">Polarion Connected</span></span>
@@ -236,25 +265,63 @@ const DEFAULT_DATA = {
     { name: 'Critical Multi-Fault', signals: { Ignition: 'ON', VehicleSpeed: 60, FuelLevel: 5, Seatbelt_Driver: 'UNBUCKLED', TurnSignal: 'HAZARD', HeadLights: 'OFF', Doors_Open: 'OPEN', EngineTemp: 115, BatteryVoltage: 10.5, ABS_Fault: 'FAULT' }, createdAt: '2025-01-15' }
   ],
   selectedReqId: 'CLU_001',
-  voiceEnabled: true
+  voiceEnabled: true,
+  buddyMinimized: false,
+  impactDraft: null
 };
 
 /* ---------------- State (localStorage persistence) ---------------- */
 const STORE_KEY = 'testforge_ai_v1';
+const DOCTOR_SAMPLE = 'System shall properly indicate ABS warning quickly when fault is detected.';
+const DOCTOR_VAGUE_WORDS = ['quickly','properly','correctly','adequately','normally','soon','appropriate','sufficient'];
+const TRIGGER_PATTERN = /\b(when|if|after|upon)\b/i;
+const TIMING_PATTERN = /\d+(?:\.\d+)?\s*(ms|second|seconds|s|hz)/i;
+const UNITS_PATTERN = /\b(ms|s|hz|%|v|km\/h)\b/i;
+function coerceState(raw) {
+  const base = JSON.parse(JSON.stringify(DEFAULT_DATA));
+  if (!raw || typeof raw !== 'object') return base;
+  return {
+    ...base,
+    ...raw,
+    projects: Array.isArray(raw.projects) ? raw.projects : base.projects,
+    requirements: Array.isArray(raw.requirements) ? raw.requirements : base.requirements,
+    tests: Array.isArray(raw.tests) ? raw.tests : base.tests,
+    vocab: Array.isArray(raw.vocab) ? raw.vocab : base.vocab,
+    scenarios: Array.isArray(raw.scenarios) ? raw.scenarios : base.scenarios,
+    selectedReqId: typeof raw.selectedReqId === 'string' ? raw.selectedReqId : base.selectedReqId,
+    voiceEnabled: typeof raw.voiceEnabled === 'boolean' ? raw.voiceEnabled : base.voiceEnabled,
+    buddyMinimized: raw.buddyMinimized === true,
+    impactDraft: raw.impactDraft && typeof raw.impactDraft === 'object' && typeof raw.impactDraft.reqId === 'string'
+      ? {
+          reqId: raw.impactDraft.reqId,
+          newText: typeof raw.impactDraft.newText === 'string' ? raw.impactDraft.newText : '',
+          analysis: raw.impactDraft.analysis && typeof raw.impactDraft.analysis === 'object' ? raw.impactDraft.analysis : null
+        }
+      : base.impactDraft
+  };
+}
 function loadState() {
   try {
     const s = localStorage.getItem(STORE_KEY);
-    if (s) return JSON.parse(s);
+    if (s) return coerceState(JSON.parse(s));
   } catch(e){}
   return JSON.parse(JSON.stringify(DEFAULT_DATA));
 }
 function saveState() { localStorage.setItem(STORE_KEY, JSON.stringify(STATE)); }
-function resetState() { localStorage.removeItem(STORE_KEY); STATE = JSON.parse(JSON.stringify(DEFAULT_DATA)); render(); toast('Data reset to defaults'); }
+function normalizeStateShape() {
+  STATE.scenarios = Array.isArray(STATE.scenarios) ? STATE.scenarios : [];
+  STATE.voiceEnabled = STATE.voiceEnabled !== false;
+  STATE.buddyMinimized = STATE.buddyMinimized === true;
+  STATE.impactDraft = STATE.impactDraft || null;
+}
+function resetState() { localStorage.removeItem(STORE_KEY); STATE = JSON.parse(JSON.stringify(DEFAULT_DATA)); normalizeStateShape(); render(); toast('Data reset to defaults'); }
 let STATE = loadState();
-STATE.scenarios = Array.isArray(STATE.scenarios) ? STATE.scenarios : [];
-STATE.voiceEnabled = STATE.voiceEnabled !== false;
+normalizeStateShape();
 
 /* ---------------- Helpers ---------------- */
+function escapeHtml(text='') {
+  return String(text).replace(/[&<>"']/g, ch => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[ch]));
+}
 function toast(msg, isErr) {
   const t = document.getElementById('toast');
   t.textContent = msg; t.className = 'toast show' + (isErr ? ' err':'');
@@ -272,17 +339,25 @@ function downloadFile(name, content, mime='text/plain') {
   a.href = url; a.download = name; a.click();
   URL.revokeObjectURL(url);
 }
+function hasMeasurableOutcome(text) {
+  const afterShall = text.match(/\bshall\b\s+(.+)/i)?.[1];
+  if (!afterShall) return false;
+  const tokens = afterShall.replace(/[^a-z0-9_<\[\]\-]+/gi, ' ').trim().split(/\s+/).filter(Boolean);
+  return tokens.length >= 2 && !DOCTOR_VAGUE_WORDS.includes(tokens[0].toLowerCase());
+}
 
 /* ---------------- Sidebar map ---------------- */
 const SIDEBAR_MAP = {
   dashboard:    ['Overview','KPIs','Recent Activity','Alerts'],
   projects:     ['All Projects','Active','Pilots','Archived'],
   requirements: ['All Requirements','New','Reviewed','Mapped','Generated','Needs Review'],
+  doctor:       ['Live Coach', 'Quality Rules', 'Vague Word Library', 'Smart Rewrite'],
   generator:    ['Active Requirement','Test Intent (ITM)','Scenarios','Interface Mapping','Automation Output','Visual Validation'],
   automation:   ['Test Suites','Environments','Schedules','Live Runs','Results'],
   visual:       ['Cluster View','Telltale Library','OCR Checks','Timing Analyzer'],
   bench:        ['Live Cluster', 'Saved Scenarios', 'Signal Library'],
   traceability: ['Graph View','Coverage Matrix','Evidence Pack','Change Impact'],
+  impact:       ['Simulate Change', 'Affected Tests', 'Blast Radius', 'Change History'],
   reports:      ['Requirement Quality','Test Coverage','Automation Readiness','Compliance (ASPICE)','Productivity'],
   admin:        ['Integrations','Vocabulary','Templates','Users','Data Management']
 };
@@ -301,6 +376,7 @@ function setView(v) {
   renderSidebar(v);
   document.getElementById('workspace').innerHTML = (VIEWS[v] || (()=>'<div class="card">Not implemented</div>'))();
   attachHandlers();
+  renderBuddy();
 }
 function render() { setView(currentView); document.getElementById('reqCount').textContent = STATE.requirements.length + ' requirements loaded'; }
 
@@ -597,6 +673,8 @@ function toggleVoice() {
 VIEWS.dashboard = () => {
   const reqs = STATE.requirements;
   const ready = Math.round(reqs.filter(r=>r.score>=80).length / Math.max(reqs.length,1) * 100);
+  const avgQuality = Math.round(reqs.reduce((sum, r) => sum + (Number(r.score) || 0), 0) / Math.max(reqs.length, 1));
+  const doctorReviewCount = reqs.filter(r => r.score < 85).length;
   return `
   <h1 style="font-size:22px;margin-bottom:6px;">Welcome back, sanjanavanka 👋</h1>
   <p style="color:#666;margin-bottom:18px;">Here's what's happening in your <b>EV Cluster Program</b> today.</p>
@@ -609,6 +687,8 @@ VIEWS.dashboard = () => {
     <div class="kpi"><div class="label">Trace Coverage</div><div class="value">94%</div><div class="delta">+2%</div></div>
     <div class="kpi"><div class="label">🎮 Saved Scenarios</div><div class="value">${STATE.scenarios.length}</div><div class="delta">Virtual Bench</div></div>
     <div class="kpi"><div class="label">🎤 Voice Ready</div><div class="value">${(window.SpeechRecognition || window.webkitSpeechRecognition) ? '✅ Yes' : '❌ Browser N/A'}</div><div class="delta">Speech API</div></div>
+    <div class="kpi"><div class="label">🩺 Avg Quality</div><div class="value">${avgQuality}%</div><div class="delta">Live Requirement Health</div></div>
+    <div class="kpi"><div class="label">⏰ Change Impact</div><div class="value">3 pending</div><div class="delta">Awaiting review</div></div>
   </div>
 
   <div class="grid-2">
@@ -620,12 +700,15 @@ VIEWS.dashboard = () => {
         <button class="secondary" onclick="setView('automation')">▶️ Run Automation</button>
         <button class="secondary" onclick="setView('traceability')">🔗 View Traceability</button>
         <button class="secondary" onclick="setView('bench')">🎮 Open Virtual Bench</button>
+        <button class="secondary" onclick="setView('doctor')">🩺 Open Doctor</button>
+        <button class="secondary" onclick="setView('impact')">⏰ Impact Analysis</button>
       </div>
     </div>
     <div class="card">
       <h2>🔔 Alerts</h2>
       <div style="font-size:13px;line-height:1.9;">
-        🟡 <b>CLU_004</b> failed requirement linting — needs review<br/>
+        🩺 <b>CLU_004</b> needs Doctor review (score: 45%)<br/>
+        🟡 <b>${doctorReviewCount}</b> requirements remain below 85% quality<br/>
         🔴 <b>TC_003</b> failed automation run on HIL bench #2<br/>
         🟢 <b>CLU_001</b> change detected — 4 tests need regeneration<br/>
         🔵 3 pending reviews assigned to you
@@ -696,7 +779,12 @@ VIEWS.requirements = () => {
           <td><span class="badge ${cls}">${r.score}%</span></td>
           <td><span class="badge blue">${r.status}</span></td>
           <td>${r.variants.join(', ')}</td>
-          <td><button class="secondary" onclick="event.stopPropagation();sendToGen('${r.id}')">→ Generator</button></td>
+          <td>
+            <div class="actions" style="margin:0;">
+              <button class="secondary" onclick="event.stopPropagation();sendToGen('${r.id}')">→ Generator</button>
+              <button class="secondary" onclick="event.stopPropagation();simulateChange('${r.id}')">⏰ Simulate</button>
+            </div>
+          </td>
         </tr>`;
       }).join('')}
     </table>
@@ -716,11 +804,11 @@ VIEWS.requirements = () => {
   </div>`;
 };
 
-function addReqModal() {
+function addReqModal(prefill={}) {
   return `<h2>Add Requirement</h2>
-    <label class='form-label'>ID</label><input id='ar_id' placeholder='CLU_999'/>
-    <label class='form-label'>Title</label><input id='ar_title' placeholder='Short title'/>
-    <label class='form-label'>Requirement Text</label><textarea id='ar_text' placeholder='When X, system shall Y within Z ms.'></textarea>
+    <label class='form-label'>ID</label><input id='ar_id' placeholder='CLU_999' value='${escapeHtml(prefill.id || '')}'/>
+    <label class='form-label'>Title</label><input id='ar_title' placeholder='Short title' value='${escapeHtml(prefill.title || '')}'/>
+    <label class='form-label'>Requirement Text</label><textarea id='ar_text' placeholder='When X, system shall Y within Z ms.'>${escapeHtml(prefill.text || '')}</textarea>
     <div class='actions'><button class='primary' onclick='addReq()'>Add</button><button class='secondary' onclick='closeModal()'>Cancel</button></div>`;
 }
 function addReq() {
@@ -735,11 +823,11 @@ function addReq() {
 function lintRequirement(text) {
   const t = text.toLowerCase();
   let score = 50;
-  const vague = ['quickly','properly','correctly','adequately','normally','soon'];
+  const vague = DOCTOR_VAGUE_WORDS;
   const hasVague = vague.some(v=>t.includes(v));
-  const hasTrigger = /\b(when|if|after|upon)\b/.test(t);
+  const hasTrigger = TRIGGER_PATTERN.test(t);
   const hasShall = t.includes('shall');
-  const hasTiming = /\d+\s*(ms|second|s|hz)/.test(t);
+  const hasTiming = TIMING_PATTERN.test(t);
   if (hasTrigger) score += 15;
   if (hasShall) score += 15;
   if (hasTiming) score += 20;
@@ -749,11 +837,19 @@ function lintRequirement(text) {
     score,
     trigger: hasTrigger ? text.match(/\b(when|if|after|upon)[^,]+/i)?.[0] || 'detected' : '(ambiguous)',
     expected: hasShall ? text.match(/shall[^.]+/i)?.[0] || 'detected' : '(ambiguous)',
-    timing: hasTiming ? text.match(/\d+\s*(ms|second|s|hz)/i)?.[0] : '(missing)'
+    timing: hasTiming ? text.match(TIMING_PATTERN)?.[0] : '(missing)'
   };
 }
 function selectReq(id) { STATE.selectedReqId = id; saveState(); render(); }
 function sendToGen(id) { STATE.selectedReqId = id; saveState(); setView('generator'); }
+function simulateChange(id) {
+  const req = STATE.requirements.find(r => r.id === id);
+  if (!req) return;
+  STATE.selectedReqId = id;
+  STATE.impactDraft = { reqId: id, newText: req.text, analysis: null };
+  saveState();
+  setView('impact');
+}
 function lintAll() {
   STATE.requirements.forEach(r => { const l = lintRequirement(r.text); r.score = l.score; });
   saveState(); render(); toast('Linting complete on all requirements ✓');
@@ -782,6 +878,290 @@ function handleReqFile(e) {
   };
   reader.readAsText(file);
 }
+
+function doctorUpdate(text) {
+  const result = lintRequirement(text);
+  const foundVague = DOCTOR_VAGUE_WORDS.filter(v => text.toLowerCase().includes(v));
+  const hasTrigger = TRIGGER_PATTERN.test(text);
+  const hasShall = /\bshall\b/i.test(text);
+  const hasTiming = TIMING_PATTERN.test(text);
+  const hasUnits = UNITS_PATTERN.test(text);
+  const hasExpected = hasMeasurableOutcome(text);
+  const scoreFill = document.getElementById('doc-fill');
+  const scoreText = document.getElementById('doc-score');
+  const scoreTone = result.score >= 85 ? '#2E7D32' : result.score >= 60 ? '#F57F17' : '#C62828';
+  const rewrite = buildDoctorRewrite(text, { hasTrigger, hasShall, hasTiming });
+  if (scoreText) scoreText.textContent = result.score + '%';
+  if (scoreFill) {
+    scoreFill.style.width = result.score + '%';
+    scoreFill.style.background = scoreTone;
+  }
+  const updates = {
+    'doc-trigger': hasTrigger ? '✅ Trigger clause present' : '❌ Add a When/If/After/Upon trigger',
+    'doc-shall': hasShall ? '✅ Uses “shall”' : '❌ Add “shall” for verifiable intent',
+    'doc-timing': hasTiming ? `✅ Timing detected (${result.timing})` : '❌ Add quantitative timing',
+    'doc-vague': foundVague.length === 0 ? '✅ No vague words found' : `❌ Vague words: ${foundVague.join(', ')}`,
+    'doc-units': hasUnits ? '✅ Units specified' : '❌ Add units like ms / s / Hz / % / V / km/h',
+    'doc-expected': hasExpected ? '✅ Measurable outcome detected' : '❌ Add a measurable verb-object outcome after “shall”'
+  };
+  Object.entries(updates).forEach(([id, value]) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = value;
+  });
+  const rewriteEl = document.getElementById('doc-rewrite');
+  if (rewriteEl) rewriteEl.textContent = rewrite;
+}
+
+function buildDoctorRewrite(text, flags={}) {
+  const source = (text || '').trim() || DOCTOR_SAMPLE;
+  let rewrite = source;
+  if (!flags.hasTrigger && !TRIGGER_PATTERN.test(rewrite)) rewrite = `When <CONDITION>, ${rewrite.charAt(0).toLowerCase() + rewrite.slice(1)}`;
+  if (!(flags.hasShall || /\bshall\b/i.test(rewrite))) {
+    if (/\b(the\s+)?(system|cluster|hmi)\b/i.test(rewrite)) rewrite = rewrite.replace(/\b(the\s+)?(system|cluster|hmi)\b/i, '$& shall');
+    else rewrite = rewrite.replace(/^([A-Z][^,]*)/, '$1 shall');
+  }
+  DOCTOR_VAGUE_WORDS.forEach(v => { rewrite = rewrite.replace(new RegExp(`\\b${v}\\b`, 'gi'), '[SPECIFY]'); });
+  if (!(flags.hasTiming || TIMING_PATTERN.test(rewrite))) rewrite = rewrite.replace(/\.\s*$/, '') + ' within <TIMING> ms.';
+  return rewrite;
+}
+
+function copyDoctorRewrite() {
+  const rewrite = document.getElementById('doc-rewrite')?.textContent || '';
+  if (!navigator.clipboard || !rewrite) return toast('Clipboard unavailable', true);
+  navigator.clipboard.writeText(rewrite)
+    .then(() => toast('Rewrite copied ✓'))
+    .catch(() => toast('Clipboard unavailable', true));
+}
+
+function doctorSaveAsRequirement() {
+  const source = document.getElementById('doctor-input')?.value || DOCTOR_SAMPLE;
+  openModal(addReqModal({ title: 'Doctor Rewrite Draft', text: buildDoctorRewrite(source) }));
+}
+
+VIEWS.doctor = () => `
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px;">
+    <h1 style="font-size:20px;">🩺 Requirement Doctor</h1>
+    <div class="actions" style="margin:0;">
+      <button class="secondary" onclick="copyDoctorRewrite()">📋 Copy Rewrite</button>
+      <button class="primary" onclick="doctorSaveAsRequirement()">💾 Save as Requirement</button>
+    </div>
+  </div>
+  <div class="doctor-layout">
+    <div class="card">
+      <h2>Live Requirement Coach</h2>
+      <p style="font-size:13px;color:#666;margin-bottom:10px;">Type or paste a requirement. Feedback updates instantly without re-rendering this view.</p>
+      <textarea id="doctor-input" oninput="doctorUpdate(this.value)" style="min-height:340px;">${escapeHtml(DOCTOR_SAMPLE)}</textarea>
+    </div>
+    <div class="card">
+      <h2>Quality Feedback</h2>
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div style="font-size:12px;color:#777;text-transform:uppercase;">Live score</div>
+        <div id="doc-score" style="font-size:22px;font-weight:700;">0%</div>
+      </div>
+      <div class="confidence-bar"><div class="fill" id="doc-fill" style="width:0%;"></div></div>
+      <div class="doctor-check"><span id="doc-trigger"></span></div>
+      <div class="doctor-check"><span id="doc-shall"></span></div>
+      <div class="doctor-check"><span id="doc-timing"></span></div>
+      <div class="doctor-check"><span id="doc-vague"></span></div>
+      <div class="doctor-check"><span id="doc-units"></span></div>
+      <div class="doctor-check" style="border-bottom:none;"><span id="doc-expected"></span></div>
+      <h3>Smart Rewrite Suggestion</h3>
+      <pre><code id="doc-rewrite"></code></pre>
+    </div>
+  </div>
+`;
+
+function ensureImpactDraft() {
+  const fallback = selectedReq();
+  const req = STATE.requirements.find(r => r.id === STATE.impactDraft?.reqId) || fallback;
+  if (!req) return null;
+  if (!STATE.impactDraft || STATE.impactDraft.reqId !== req.id) STATE.impactDraft = { reqId: req.id, newText: req.text, analysis: null };
+  if (typeof STATE.impactDraft.newText !== 'string') STATE.impactDraft.newText = req.text;
+  return req;
+}
+
+function updateImpactRequirement(id) {
+  const req = STATE.requirements.find(r => r.id === id);
+  if (!req) return;
+  STATE.selectedReqId = id;
+  STATE.impactDraft = { reqId: id, newText: req.text, analysis: null };
+  saveState();
+  setView('impact');
+}
+
+function updateImpactText(text) {
+  const req = ensureImpactDraft();
+  if (!req) return;
+  STATE.impactDraft.newText = text;
+  STATE.impactDraft.analysis = null;
+  saveState();
+}
+
+function renderWordDiff(oldText, newText) {
+  const left = oldText.split(/\s+/).filter(Boolean);
+  const right = newText.split(/\s+/).filter(Boolean);
+  let i = 0, j = 0;
+  const parts = [];
+  while (i < left.length || j < right.length) {
+    if (i >= left.length) {
+      parts.push(`<ins style="background:#C8E6C9;text-decoration:none;">${escapeHtml(right[j])}</ins>`);
+      j++;
+      continue;
+    }
+    if (j >= right.length) {
+      parts.push(`<del style="background:#FFCDD2;text-decoration:line-through;">${escapeHtml(left[i])}</del>`);
+      i++;
+      continue;
+    }
+    if (left[i] === right[j]) {
+      parts.push(escapeHtml(left[i] || ''));
+      i++; j++;
+    } else if (left[i + 1] === right[j]) {
+      parts.push(`<del style="background:#FFCDD2;text-decoration:line-through;">${escapeHtml(left[i])}</del>`);
+      i++;
+    } else if (left[i] === right[j + 1]) {
+      parts.push(`<ins style="background:#C8E6C9;text-decoration:none;">${escapeHtml(right[j])}</ins>`);
+      j++;
+    } else {
+      if (i < left.length) parts.push(`<del style="background:#FFCDD2;text-decoration:line-through;">${escapeHtml(left[i])}</del>`);
+      if (j < right.length) parts.push(`<ins style="background:#C8E6C9;text-decoration:none;">${escapeHtml(right[j])}</ins>`);
+      i++; j++;
+    }
+  }
+  return parts.join(' ');
+}
+
+function analyzeImpact() {
+  const req = ensureImpactDraft();
+  if (!req) return;
+  const newText = document.getElementById('impact-text')?.value || STATE.impactDraft.newText || req.text;
+  STATE.selectedReqId = req.id;
+  STATE.impactDraft.newText = newText;
+  STATE.impactDraft.analysis = {
+    originalText: req.text,
+    oldScore: lintRequirement(req.text).score,
+    newScore: lintRequirement(newText).score,
+    diffHtml: renderWordDiff(req.text, newText)
+  };
+  saveState();
+  setView('impact');
+}
+
+function regenerateAffected() {
+  const reqId = STATE.impactDraft?.reqId;
+  const affected = STATE.tests.filter(t => t.req === reqId);
+  affected.forEach(t => { t.status = 'Pass'; });
+  saveState();
+  setView('impact');
+  toast(`Regenerated ${affected.length} tests ✓`);
+}
+
+function createChangeTask() {
+  toast(`Change task created — CHG-${Math.floor(100 + Math.random() * 900)} assigned`);
+}
+
+function exportImpactReport() {
+  const req = ensureImpactDraft();
+  const analysis = STATE.impactDraft?.analysis;
+  if (!req || !analysis) return toast('Analyze impact first', true);
+  const affected = STATE.tests.filter(t => t.req === req.id);
+  downloadFile(`impact_${req.id}.txt`, `Impact Report — ${req.id}
+
+Original:
+${analysis.originalText}
+
+Proposed:
+${STATE.impactDraft.newText}
+
+Affected tests: ${affected.length}
+Scripts to regenerate: ${affected.length}
+Results to re-run: ${affected.filter(t => t.status === 'Pass').length}
+Coverage points to re-validate: ${req.variants.length}
+
+Score: Old ${analysis.oldScore}% -> New ${analysis.newScore}%
+`);
+  toast('Impact report downloaded ✓');
+}
+
+function getImpactSeverity(status) {
+  if (status === 'Pass') return { label:'High', cls:'red' };
+  if (status === 'Fail') return { label:'Medium', cls:'yellow' };
+  return { label:'Low', cls:'blue' };
+}
+
+VIEWS.impact = () => {
+  const req = ensureImpactDraft();
+  if (!req) return '<div class="card">No requirements available for impact analysis.</div>';
+  const impactedTests = STATE.tests.filter(t => t.req === req.id);
+  const analysis = STATE.impactDraft?.analysis;
+  const rerunCount = impactedTests.filter(t => t.status === 'Pass').length;
+  const delta = analysis ? analysis.newScore - analysis.oldScore : 0;
+  const deltaColor = delta > 0 ? '#2E7D32' : delta < 0 ? '#C62828' : '#777';
+  const deltaLabel = delta > 0 ? `↑ +${delta}` : delta < 0 ? `↓ ${delta}` : '→ 0';
+  return `
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+        <h2>⏰ Change Impact / Time Machine</h2>
+        <div class="actions" style="margin:0;">
+          <button class="primary" onclick="analyzeImpact()">🔍 Analyze Impact</button>
+        </div>
+      </div>
+      <div style="margin-top:12px;">
+        <label class="form-label">Requirement</label>
+        <select onchange="updateImpactRequirement(this.value)">
+          ${STATE.requirements.map(r => `<option value="${r.id}" ${r.id===req.id?'selected':''}>${r.id} — ${escapeHtml(r.title)}</option>`).join('')}
+        </select>
+        <label class="form-label">Simulated new text</label>
+        <textarea id="impact-text" oninput="updateImpactText(this.value)" style="min-height:120px;">${escapeHtml(STATE.impactDraft?.newText || req.text)}</textarea>
+      </div>
+    </div>
+    ${analysis ? `
+      <div class="impact-counters">
+        <div class="kpi"><div class="label">🔴 Test cases affected</div><div class="value">${impactedTests.length}</div><div class="delta">Direct trace links</div></div>
+        <div class="kpi"><div class="label">🟡 Scripts need regeneration</div><div class="value">${impactedTests.length}</div><div class="delta">1 script per test</div></div>
+        <div class="kpi"><div class="label">🟠 Results may become invalid</div><div class="value">${rerunCount}</div><div class="delta">Passing tests must re-run</div></div>
+        <div class="kpi"><div class="label">🟢 Coverage points</div><div class="value">${req.variants.length}</div><div class="delta">Variant re-validation</div></div>
+      </div>
+      <div class="impact-layout" style="margin-top:18px;">
+        <div class="card">
+          <h2>Affected Tests</h2>
+          <table>
+            <tr><th>Test ID</th><th>Name</th><th>Framework</th><th>Current Status</th><th>Impact Severity</th></tr>
+            ${impactedTests.length ? impactedTests.map(t => {
+              const severity = getImpactSeverity(t.status);
+              return `<tr>
+                <td><b>${t.id}</b></td>
+                <td>${escapeHtml(t.name)}</td>
+                <td>${t.framework}</td>
+                <td><span class="badge ${t.status === 'Pass' ? 'green' : t.status === 'Fail' ? 'red' : 'grey'}">${t.status}</span></td>
+                <td><span class="badge ${severity.cls}">${severity.label}</span></td>
+              </tr>`;
+            }).join('') : `<tr><td colspan="5">No affected tests traced to ${req.id}.</td></tr>`}
+          </table>
+        </div>
+        <div class="card">
+          <h2>Re-lint Score Comparison</h2>
+          <div style="font-size:22px;font-weight:700;color:${deltaColor};margin-bottom:14px;">Old: ${analysis.oldScore}% → New: ${analysis.newScore}% <span style="font-size:14px;">(${deltaLabel})</span></div>
+          <h3>Side-by-Side Diff</h3>
+          <div class="diff-box">${analysis.diffHtml}</div>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Recommended Actions</h2>
+        <div class="actions">
+          <button class="primary" onclick="regenerateAffected()">🤖 Regenerate All Affected</button>
+          <button class="secondary" onclick="createChangeTask()">📋 Create Change Task</button>
+          <button class="secondary" onclick="exportImpactReport()">📥 Export Impact Report</button>
+        </div>
+      </div>
+    ` : `
+      <div class="card">
+        <h2>Blast Radius Preview</h2>
+        <p style="font-size:13px;color:#666;">Edit the requirement text above, then click <b>Analyze Impact</b> to see affected tests, trace links, word diff, and score drift.</p>
+      </div>
+    `}
+  `;
+};
 
 VIEWS.generator = () => {
   const sel = selectedReq();
@@ -1036,7 +1416,7 @@ VIEWS.traceability = () => `
     </div>
     <div class="actions">
       <button class="primary" onclick="downloadEvidence()">📄 Export Evidence Pack</button>
-      <button class="secondary" onclick="toast('Change impact: 4 tests affected')">🔍 Change Impact</button>
+      <button class="secondary" onclick="simulateChange('${selectedReq().id}')">🔍 Change Impact</button>
       <button class="secondary" onclick="toast('Coverage matrix opened')">📊 Coverage Matrix</button>
     </div>
   </div>
@@ -1139,10 +1519,59 @@ function importData(e) {
   const f = e.target.files[0]; if (!f) return;
   const r = new FileReader();
   r.onload = (ev) => {
-    try { STATE = JSON.parse(ev.target.result); saveState(); render(); toast('Data imported ✓'); }
+    try { STATE = coerceState(JSON.parse(ev.target.result)); normalizeStateShape(); saveState(); render(); toast('Data imported ✓'); }
     catch(err) { toast('Import failed: '+err.message, true); }
   };
   r.readAsText(f);
+}
+
+function getBuddyTips(view, req) {
+  const lowReq = STATE.requirements.find(r => r.score < 60);
+  const reviewCount = STATE.requirements.filter(r => r.score < 85).length;
+  const requirementDoctorTip = lowReq ? `💡 ${lowReq.id} has low score — try Doctor` : '💡 Use Doctor to sharpen low-confidence requirements';
+  const tips = {
+    dashboard: [`💡 Click 'Open Generator' to start`, `💡 ${reviewCount} reqs need review`, `💡 Try voice: say 'open bench'`],
+    requirements: [`💡 Click any req to select it`, requirementDoctorTip, `💡 Use 🔍 Run Linting on All`],
+    doctor: [`💡 Avoid vague words like 'quickly'`, `💡 Add measurable timing in ms/s/Hz`, `💡 Start with When/If trigger`],
+    generator: [`💡 5 scenarios auto-generated per req`, `💡 Export to CAPL+Python+Robot`, `💡 Confidence < 85? Use Doctor first`],
+    automation: [`💡 TC_003 failed — review logs`, `💡 Try HIL Bench #2 for stability`, `💡 Re-run after fixing signals`],
+    visual: [`💡 Check OCR text exactly`, `💡 Blink rate tolerance ±0.1 Hz`, `💡 Icon color hex must match`],
+    bench: [`💡 Save current state as scenario`, `💡 Generate test from this state`, `💡 Try the 'Critical Multi-Fault' preset`],
+    traceability: [`💡 Coverage at 94% — aim for 98%`, `💡 Export ASPICE evidence pack`, `💡 3 orphan tests detected`],
+    impact: [`💡 Edit the text to see blast radius`, `💡 High-impact = was passing`, `💡 Regen all affected after approval`],
+    reports: [`💡 Trend: 44% more defects caught`, `💡 Export PDF for management`, `💁 Compare against last sprint`],
+    admin: [`💡 Add OEM-specific terms in Vocab`, `💡 Reset data via Data Management`]
+  };
+  return tips[view] || [`💡 Select a module to continue`, `💡 ${req ? `Working with ${req.id}` : 'Choose a requirement'} next`];
+}
+
+function toggleBuddy() { STATE.buddyMinimized = !STATE.buddyMinimized; saveState(); renderBuddy(); }
+
+function renderBuddy() {
+  const buddy = document.getElementById('buddy');
+  if (!buddy) return;
+  if (STATE.buddyMinimized) {
+    buddy.className = 'buddy minimized';
+    buddy.innerHTML = '';
+    buddy.onclick = () => { STATE.buddyMinimized = false; saveState(); renderBuddy(); };
+    return;
+  }
+  const req = selectedReq();
+  const tips = getBuddyTips(currentView, req);
+  buddy.className = 'buddy';
+  buddy.onclick = null;
+  buddy.innerHTML = `
+    <div class="buddy-header">
+      <span>🤖</span>
+      <span class="b-title">Test Buddy</span>
+      <button class="b-btn" onclick="event.stopPropagation();toggleBuddy()" title="Minimize">−</button>
+    </div>
+    <div class="buddy-body">
+      <div style="font-size:11px;color:#888;margin-bottom:8px;">Context: ${currentView}${req ? ` · ${req.id}` : ''}</div>
+      ${tips.map(t => `<div class="buddy-tip">${t}</div>`).join('')}
+      <button class="buddy-action" onclick="setView('doctor')">🩺 Open Doctor</button>
+    </div>
+  `;
 }
 
 /* ---------------- Handlers ---------------- */
@@ -1161,11 +1590,16 @@ function attachHandlers() {
     syncBenchInputs();
   }
 
+  if (currentView === 'doctor') {
+    const input = document.getElementById('doctor-input');
+    if (input) doctorUpdate(input.value);
+  }
+
   updateVoiceBtn();
 }
 
 document.querySelectorAll('#topnav button').forEach(b => b.onclick = () => setView(b.dataset.view));
-setView('dashboard');
+render();
 </script>
 
 </body>
