@@ -287,7 +287,17 @@ function coerceState(raw) {
     requirements: Array.isArray(raw.requirements) ? raw.requirements : base.requirements,
     tests: Array.isArray(raw.tests) ? raw.tests : base.tests,
     vocab: Array.isArray(raw.vocab) ? raw.vocab : base.vocab,
-    scenarios: Array.isArray(raw.scenarios) ? raw.scenarios : base.scenarios
+    scenarios: Array.isArray(raw.scenarios) ? raw.scenarios : base.scenarios,
+    selectedReqId: typeof raw.selectedReqId === 'string' ? raw.selectedReqId : base.selectedReqId,
+    voiceEnabled: typeof raw.voiceEnabled === 'boolean' ? raw.voiceEnabled : base.voiceEnabled,
+    buddyMinimized: raw.buddyMinimized === true,
+    impactDraft: raw.impactDraft && typeof raw.impactDraft === 'object' && typeof raw.impactDraft.reqId === 'string'
+      ? {
+          reqId: raw.impactDraft.reqId,
+          newText: typeof raw.impactDraft.newText === 'string' ? raw.impactDraft.newText : '',
+          analysis: raw.impactDraft.analysis && typeof raw.impactDraft.analysis === 'object' ? raw.impactDraft.analysis : null
+        }
+      : base.impactDraft
   };
 }
 function loadState() {
@@ -993,6 +1003,16 @@ function renderWordDiff(oldText, newText) {
   let i = 0, j = 0;
   const parts = [];
   while (i < left.length || j < right.length) {
+    if (i >= left.length) {
+      parts.push(`<ins style="background:#C8E6C9;text-decoration:none;">${escapeHtml(right[j])}</ins>`);
+      j++;
+      continue;
+    }
+    if (j >= right.length) {
+      parts.push(`<del style="background:#FFCDD2;text-decoration:line-through;">${escapeHtml(left[i])}</del>`);
+      i++;
+      continue;
+    }
     if (left[i] === right[j]) {
       parts.push(escapeHtml(left[i] || ''));
       i++; j++;
@@ -1508,9 +1528,10 @@ function importData(e) {
 function getBuddyTips(view, req) {
   const lowReq = STATE.requirements.find(r => r.score < 60);
   const reviewCount = STATE.requirements.filter(r => r.score < 85).length;
+  const requirementDoctorTip = lowReq ? `💡 ${lowReq.id} has low score — try Doctor` : '💡 Use Doctor to sharpen low-confidence requirements';
   const tips = {
     dashboard: [`💡 Click 'Open Generator' to start`, `💡 ${reviewCount} reqs need review`, `💡 Try voice: say 'open bench'`],
-    requirements: [`💡 Click any req to select it`, `💡 ${(lowReq || req || { id:'CLU_004' }).id} has low score — try Doctor`, `💡 Use 🔍 Run Linting on All`],
+    requirements: [`💡 Click any req to select it`, requirementDoctorTip, `💡 Use 🔍 Run Linting on All`],
     doctor: [`💡 Avoid vague words like 'quickly'`, `💡 Add measurable timing in ms/s/Hz`, `💡 Start with When/If trigger`],
     generator: [`💡 5 scenarios auto-generated per req`, `💡 Export to CAPL+Python+Robot`, `💡 Confidence < 85? Use Doctor first`],
     automation: [`💡 TC_003 failed — review logs`, `💡 Try HIL Bench #2 for stability`, `💡 Re-run after fixing signals`],
