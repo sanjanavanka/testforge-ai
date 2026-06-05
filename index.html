@@ -111,6 +111,33 @@
   textarea { resize:vertical; min-height:80px; }
   label.form-label { display:block; font-size:12px; color:#555; margin:8px 0 4px; font-weight:600; }
 
+  .bench-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .bench-cluster { background: linear-gradient(135deg, #000, #1a1a1a); border-radius: 16px; padding: 30px; min-height: 320px; color: #fff; font-family: 'Consolas', monospace; }
+  .bench-cluster.off { opacity: 0.3; }
+  .bench-telltale { font-size: 32px; margin: 6px; display: inline-block; opacity: 0.15; transition: all 0.3s; }
+  .bench-telltale.on { opacity: 1; animation: bench-blink 1s infinite; filter: drop-shadow(0 0 10px currentColor); }
+  @keyframes bench-blink { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+  .bench-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid #eee; }
+  .bench-row label { min-width: 130px; font-weight: 600; color: #1A237E; font-size: 13px; }
+  .bench-row input[type=range] { flex: 1; }
+  .bench-row select { padding: 6px 10px; border-radius: 6px; border: 1px solid #ccc; width:auto; }
+  .bench-value { min-width: 60px; font-family: monospace; color: #FF6F00; font-weight: 700; text-align: right; }
+  .bench-speedo { font-size: 60px; text-align: center; color: #FFB74D; margin: 20px 0; }
+  .bench-stats { display: flex; justify-content: space-around; font-size: 14px; color: #69F0AE; }
+
+  .voice-btn { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+               width: 56px; height: 56px; border-radius: 50%; background: #FF6F00;
+               color: white; font-size: 28px; border: none; cursor: pointer;
+               box-shadow: 0 4px 16px rgba(255,111,0,0.4); z-index: 500;
+               display: flex; align-items: center; justify-content: center; }
+  .voice-btn:hover { transform: translateX(-50%) scale(1.1); }
+  .voice-btn.listening { background: #C62828; animation: voice-pulse 1s infinite; }
+  @keyframes voice-pulse { 0%,100% { transform: translateX(-50%) scale(1); } 50% { transform: translateX(-50%) scale(1.15); box-shadow: 0 4px 24px rgba(198,40,40,0.8); } }
+  .voice-transcript { position: fixed; top: 80px; left: 50%; transform: translateX(-50%);
+                      background: rgba(26,35,126,0.95); color: white; padding: 12px 24px;
+                      border-radius: 24px; font-size: 16px; z-index: 600; max-width: 80%;
+                      box-shadow: 0 4px 16px rgba(0,0,0,0.3); }
+
   /* Modal */
   .modal-bg { position:fixed; inset:0; background:rgba(0,0,0,.5); display:none; align-items:center; justify-content:center; z-index:1000; }
   .modal-bg.show { display:flex; }
@@ -134,6 +161,7 @@
     <button data-view="generator">Generator</button>
     <button data-view="automation">Automation</button>
     <button data-view="visual">Visual Validation</button>
+    <button data-view="bench">🎮 Bench</button>
     <button data-view="traceability">Traceability</button>
     <button data-view="reports">Reports</button>
     <button data-view="admin">Admin</button>
@@ -157,6 +185,8 @@
   <div class="modal" id="modalContent"></div>
 </div>
 <div class="toast" id="toast"></div>
+<button class="voice-btn" id="voiceBtn" onclick="toggleVoice()" title="Voice Commands">🎤</button>
+<div class="voice-transcript" id="voiceTranscript" style="display:none;"></div>
 
 <script>
 /* ===================================================================
@@ -200,7 +230,13 @@ const DEFAULT_DATA = {
     { canonical:'TELLTALE_SEATBELT', a:'Seatbelt Lamp',   b:'SBR Icon',   c:'Belt Warning' },
     { canonical:'READY_STATE',       a:'Drive Ready',     b:'HV Active',  c:'Vehicle Active' },
   ],
-  selectedReqId: 'CLU_001'
+  scenarios: [
+    { name: 'Idle Engine ON', signals: { Ignition: 'ON', VehicleSpeed: 0, FuelLevel: 50, Seatbelt_Driver: 'BUCKLED', TurnSignal: 'NONE', HeadLights: 'OFF', Doors_Open: 'CLOSED', EngineTemp: 90, BatteryVoltage: 12.5, ABS_Fault: 'OK' }, createdAt: '2025-01-15' },
+    { name: 'Low Fuel Highway', signals: { Ignition: 'ON', VehicleSpeed: 120, FuelLevel: 8, Seatbelt_Driver: 'BUCKLED', TurnSignal: 'NONE', HeadLights: 'LOW', Doors_Open: 'CLOSED', EngineTemp: 95, BatteryVoltage: 12.3, ABS_Fault: 'OK' }, createdAt: '2025-01-15' },
+    { name: 'Critical Multi-Fault', signals: { Ignition: 'ON', VehicleSpeed: 60, FuelLevel: 5, Seatbelt_Driver: 'UNBUCKLED', TurnSignal: 'HAZARD', HeadLights: 'OFF', Doors_Open: 'OPEN', EngineTemp: 115, BatteryVoltage: 10.5, ABS_Fault: 'FAULT' }, createdAt: '2025-01-15' }
+  ],
+  selectedReqId: 'CLU_001',
+  voiceEnabled: true
 };
 
 /* ---------------- State (localStorage persistence) ---------------- */
@@ -215,6 +251,8 @@ function loadState() {
 function saveState() { localStorage.setItem(STORE_KEY, JSON.stringify(STATE)); }
 function resetState() { localStorage.removeItem(STORE_KEY); STATE = JSON.parse(JSON.stringify(DEFAULT_DATA)); render(); toast('Data reset to defaults'); }
 let STATE = loadState();
+STATE.scenarios = Array.isArray(STATE.scenarios) ? STATE.scenarios : [];
+STATE.voiceEnabled = STATE.voiceEnabled !== false;
 
 /* ---------------- Helpers ---------------- */
 function toast(msg, isErr) {
@@ -243,6 +281,7 @@ const SIDEBAR_MAP = {
   generator:    ['Active Requirement','Test Intent (ITM)','Scenarios','Interface Mapping','Automation Output','Visual Validation'],
   automation:   ['Test Suites','Environments','Schedules','Live Runs','Results'],
   visual:       ['Cluster View','Telltale Library','OCR Checks','Timing Analyzer'],
+  bench:        ['Live Cluster', 'Saved Scenarios', 'Signal Library'],
   traceability: ['Graph View','Coverage Matrix','Evidence Pack','Change Impact'],
   reports:      ['Requirement Quality','Test Coverage','Automation Readiness','Compliance (ASPICE)','Productivity'],
   admin:        ['Integrations','Vocabulary','Templates','Users','Data Management']
@@ -268,6 +307,293 @@ function render() { setView(currentView); document.getElementById('reqCount').te
 /* ========================  VIEWS  ======================== */
 const VIEWS = {};
 
+
+const BENCH_SIGNALS = [
+  { id: 'Ignition', type: 'select', options: ['OFF','ACC','ON','CRANK'], default: 'OFF' },
+  { id: 'VehicleSpeed', type: 'range', min: 0, max: 250, default: 0, unit: 'km/h' },
+  { id: 'FuelLevel', type: 'range', min: 0, max: 100, default: 50, unit: '%' },
+  { id: 'Seatbelt_Driver', type: 'select', options: ['BUCKLED','UNBUCKLED'], default: 'BUCKLED' },
+  { id: 'TurnSignal', type: 'select', options: ['NONE','LEFT','RIGHT','HAZARD'], default: 'NONE' },
+  { id: 'HeadLights', type: 'select', options: ['OFF','PARK','LOW','HIGH'], default: 'OFF' },
+  { id: 'Doors_Open', type: 'select', options: ['CLOSED','OPEN'], default: 'CLOSED' },
+  { id: 'EngineTemp', type: 'range', min: 50, max: 130, default: 90, unit: '°C' },
+  { id: 'BatteryVoltage', type: 'range', min: 9, max: 16, step: 0.1, default: 12.5, unit: 'V' },
+  { id: 'ABS_Fault', type: 'select', options: ['OK','FAULT'], default: 'OK' }
+];
+
+const BENCH_RULES = [
+  { id:'seatbelt', label:'Seatbelt', icon:'🚨', color:'#ff5252', condition:(s)=> s.Ignition !== 'OFF' && s.Seatbelt_Driver === 'UNBUCKLED' },
+  { id:'fuel_low', label:'Low Fuel', icon:'⛽', color:'#FFD740', condition:(s)=> Number(s.FuelLevel) < 10 },
+  { id:'door_ajar', label:'Door Ajar', icon:'🚪', color:'#ff5252', condition:(s)=> Number(s.VehicleSpeed) > 0 && s.Doors_Open === 'OPEN' },
+  { id:'overheat', label:'Overheat', icon:'🌡️', color:'#ff5252', condition:(s)=> Number(s.EngineTemp) > 110 },
+  { id:'turn_left', label:'Turn Left', icon:'⬅️', color:'#69F0AE', condition:(s)=> s.TurnSignal === 'LEFT' || s.TurnSignal === 'HAZARD' },
+  { id:'turn_right', label:'Turn Right', icon:'➡️', color:'#69F0AE', condition:(s)=> s.TurnSignal === 'RIGHT' || s.TurnSignal === 'HAZARD' },
+  { id:'abs', label:'ABS', icon:'🛞', color:'#FFC107', condition:(s)=> s.ABS_Fault === 'FAULT' },
+  { id:'battery', label:'Battery', icon:'🔋', color:'#ff5252', condition:(s)=> Number(s.BatteryVoltage) < 11 },
+  { id:'high_beam', label:'High Beam', icon:'🔵', color:'#64B5F6', condition:(s)=> s.HeadLights === 'HIGH' }
+];
+
+function getBenchDefaults() {
+  return BENCH_SIGNALS.reduce((acc, sig) => { acc[sig.id] = sig.default; return acc; }, {});
+}
+let benchSignals = getBenchDefaults();
+
+function currentDateString() { return new Date().toISOString().slice(0,10); }
+
+function normalizeBenchSignal(sig, value) {
+  if (sig.type === 'range') return Number(value);
+  return value;
+}
+
+function renderBenchRules() {
+  const active = BENCH_RULES.filter(r => r.condition(benchSignals));
+  const telltales = document.getElementById('bench-telltales');
+  const cluster = document.getElementById('bench-cluster');
+  if (!telltales || !cluster) return;
+
+  telltales.innerHTML = BENCH_RULES.map(rule => {
+    const on = active.some(a => a.id === rule.id);
+    return `<span class="bench-telltale ${on ? 'on' : ''}" style="color:${rule.color}" title="${rule.label}">${rule.icon}</span>`;
+  }).join('');
+
+  cluster.classList.toggle('off', benchSignals.Ignition === 'OFF');
+  document.getElementById('bench-speedo').textContent = `${Number(benchSignals.VehicleSpeed)} km/h`;
+  document.getElementById('bench-fuel').textContent = `FUEL: ${Number(benchSignals.FuelLevel)}%`;
+  document.getElementById('bench-temp').textContent = `TEMP: ${Number(benchSignals.EngineTemp)}°C`;
+  document.getElementById('bench-batt').textContent = `BATT: ${Number(benchSignals.BatteryVoltage).toFixed(1)}V`;
+  document.getElementById('bench-warning-count').textContent = `Active warnings: ${active.length}`;
+  document.getElementById('bench-json').textContent = JSON.stringify(benchSignals, null, 2);
+}
+
+function syncBenchInputs() {
+  BENCH_SIGNALS.forEach(sig => {
+    const input = document.getElementById(`bench-input-${sig.id}`);
+    const valueEl = document.getElementById(`bench-value-${sig.id}`);
+    if (!input || !valueEl) return;
+    input.value = benchSignals[sig.id];
+    valueEl.textContent = sig.type === 'range' ? `${benchSignals[sig.id]}${sig.unit || ''}` : benchSignals[sig.id];
+  });
+  renderBenchRules();
+}
+
+function updateBenchSignal(id, rawValue) {
+  const sig = BENCH_SIGNALS.find(s => s.id === id);
+  if (!sig) return;
+  benchSignals[id] = normalizeBenchSignal(sig, rawValue);
+  const valueEl = document.getElementById(`bench-value-${sig.id}`);
+  if (valueEl) valueEl.textContent = sig.type === 'range' ? `${benchSignals[sig.id]}${sig.unit || ''}` : benchSignals[sig.id];
+  renderBenchRules();
+}
+
+function loadBenchScenario(name) {
+  const scenario = STATE.scenarios.find(sc => sc.name === name);
+  if (!scenario) return;
+  benchSignals = { ...getBenchDefaults(), ...scenario.signals };
+  syncBenchInputs();
+  toast(`Scenario loaded: ${name} ✓`);
+}
+
+function resetBenchSignals() {
+  benchSignals = getBenchDefaults();
+  syncBenchInputs();
+  toast('Bench reset to defaults ✓');
+}
+
+function saveBenchScenario() {
+  openModal(`
+    <h2>💾 Save Scenario</h2>
+    <label class='form-label'>Scenario Name</label>
+    <input id='benchScenarioName' placeholder='e.g. Night Drive / ABS Fault'/>
+    <div class='actions'>
+      <button class='primary' onclick='confirmSaveBenchScenario()'>Save</button>
+      <button class='secondary' onclick='closeModal()'>Cancel</button>
+    </div>
+  `);
+}
+
+function confirmSaveBenchScenario() {
+  const input = document.getElementById('benchScenarioName');
+  const name = input ? input.value.trim() : '';
+  if (!name) return toast('Scenario name required', true);
+  STATE.scenarios.unshift({ name, signals: { ...benchSignals }, createdAt: currentDateString() });
+  saveState();
+  closeModal();
+  setView('bench');
+  toast(`Scenario saved: ${name} ✓`);
+}
+
+function generateTestFromBenchState() {
+  const req = STATE.requirements.find(r => r.id === STATE.selectedReqId);
+  if (!req) return toast('Select a requirement first', true);
+  const nums = STATE.tests.map(t => Number((t.id || '').replace('TC_',''))).filter(n => Number.isFinite(n));
+  const next = (nums.length ? Math.max(...nums) : 0) + 1;
+  const id = `TC_${String(next).padStart(3,'0')}`;
+  STATE.tests.unshift({ id, req: req.id, name: `Bench state validation for ${req.id}`, type: 'State', framework: 'Manual', status: 'Draft', preconditions: JSON.stringify(benchSignals) });
+  saveState();
+  toast(`Generated ${id} from bench state ✓`);
+}
+
+VIEWS.bench = () => `
+  <div class="bench-grid">
+    <div class="card">
+      <h2>🎮 Virtual Bench — Signal Controls</h2>
+      ${BENCH_SIGNALS.map(sig => `
+        <div class="bench-row">
+          <label>${sig.id}</label>
+          ${sig.type === 'range'
+            ? `<input id="bench-input-${sig.id}" type="range" min="${sig.min}" max="${sig.max}" step="${sig.step || 1}" value="${benchSignals[sig.id]}" oninput="updateBenchSignal('${sig.id}', this.value)"/>`
+            : `<select id="bench-input-${sig.id}" onchange="updateBenchSignal('${sig.id}', this.value)">${sig.options.map(opt => `<option value="${opt}" ${benchSignals[sig.id]===opt?'selected':''}>${opt}</option>`).join('')}</select>`}
+          <span class="bench-value" id="bench-value-${sig.id}">${sig.type === 'range' ? `${benchSignals[sig.id]}${sig.unit || ''}` : benchSignals[sig.id]}</span>
+        </div>
+      `).join('')}
+      <div class="actions">
+        <button class="primary" onclick="saveBenchScenario()">💾 Save as Scenario</button>
+        <select id="benchScenarioSelect" style="width:auto;max-width:220px;" onchange="if(this.value) loadBenchScenario(this.value)">
+          <option value="">📋 Load Scenario</option>
+          ${STATE.scenarios.map(sc => `<option value="${sc.name}">${sc.name}</option>`).join('')}
+        </select>
+        <button class="secondary" onclick="generateTestFromBenchState()">▶ Generate Test from State</button>
+        <button class="secondary" onclick="resetBenchSignals()">🔄 Reset</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>🖥️ Live Cluster</h2>
+      <div class="bench-cluster" id="bench-cluster">
+        <div id="bench-telltales"></div>
+        <div class="bench-speedo" id="bench-speedo">0 km/h</div>
+        <div class="bench-stats">
+          <div id="bench-fuel">FUEL: 50%</div>
+          <div id="bench-temp">TEMP: 90°C</div>
+          <div id="bench-batt">BATT: 12.5V</div>
+        </div>
+        <div style="margin-top:14px;text-align:center;color:#fff;" id="bench-warning-count">Active warnings: 0</div>
+      </div>
+      <details style="margin-top:10px;">
+        <summary style="cursor:pointer;">Current Signal JSON</summary>
+        <pre id="bench-json" style="margin-top:10px;"></pre>
+      </details>
+    </div>
+  </div>
+`;
+
+let voiceRecognition = null;
+let voiceListening = false;
+let voiceTranscriptTimer = null;
+
+function updateVoiceBtn() {
+  const btn = document.getElementById('voiceBtn');
+  if (!btn) return;
+  btn.classList.toggle('listening', voiceListening);
+  btn.style.display = STATE.voiceEnabled === false ? 'none' : 'flex';
+}
+
+function showVoiceTranscript(transcript) {
+  const el = document.getElementById('voiceTranscript');
+  if (!el) return;
+  el.textContent = `🎤 ${transcript}`;
+  el.style.display = 'block';
+  clearTimeout(voiceTranscriptTimer);
+  voiceTranscriptTimer = setTimeout(() => { el.style.display = 'none'; }, 3000);
+}
+
+function speakResponse(text) {
+  if (!window.speechSynthesis) return;
+  const u = new SpeechSynthesisUtterance(text);
+  u.rate = 1.0;
+  u.pitch = 1.0;
+  window.speechSynthesis.speak(u);
+}
+
+function processVoiceCommand(transcript) {
+  const t = transcript.toLowerCase().trim();
+  const ackVoice = () => toast(`Voice: ${transcript} ✓`);
+  const go = (view, msg) => {
+    setView(view);
+    toast(msg);
+    ackVoice();
+    return true;
+  };
+
+  if (t.includes('dashboard')) return go('dashboard', '✓ Dashboard');
+  if (t.includes('requirements')) return go('requirements', '✓ Requirements');
+  if (t.includes('doctor')) return go('doctor', '✓ Doctor');
+  if (t.includes('generator') || t.includes('generate')) return go('generator', '✓ Generator');
+  if (t.includes('automation')) return go('automation', '✓ Automation');
+  if (t.includes('visual')) return go('visual', '✓ Visual');
+  if (t.includes('traceability') || t.includes('trace')) return go('traceability', '✓ Traceability');
+  if (t.includes('impact') || t.includes('time machine')) return go('impact', '✓ Impact');
+  if (t.includes('reports')) return go('reports', '✓ Reports');
+  if (t.includes('admin')) return go('admin', '✓ Admin');
+  if (t.includes('virtual bench') || t.includes('bench')) return go('bench', '✓ Bench');
+
+  const reqMatch = t.match(/(?:show me|open)\s+(clu[\s_\-]?\d+)/i);
+  if (reqMatch) {
+    const reqId = reqMatch[1].toUpperCase().replace(/[\s\-]/g, '_');
+    const req = STATE.requirements.find(r => r.id === reqId);
+    if (req) {
+      STATE.selectedReqId = req.id;
+      saveState();
+      setView('requirements');
+      toast(`✓ Opened ${req.id}`);
+      ackVoice();
+      return true;
+    }
+  }
+
+  if (t === 'hello' || t === 'hi testforge') {
+    speakResponse('Hello! What can I help you validate?');
+    ackVoice();
+    return true;
+  }
+
+  if (t === 'help' || t === 'what can you do') {
+    speakResponse('Try saying dashboard, requirements, open virtual bench, open CLU underscore zero zero one, or automation.');
+    ackVoice();
+    return true;
+  }
+
+  toast(`🎤 Not recognized: '${transcript}'`, true);
+  return false;
+}
+
+function initVoice() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) return null;
+  const r = new SR();
+  r.continuous = false;
+  r.interimResults = false;
+  r.lang = 'en-US';
+  r.onresult = (e) => {
+    const transcript = e.results[0][0].transcript;
+    showVoiceTranscript(transcript);
+    processVoiceCommand(transcript);
+  };
+  r.onerror = (e) => toast('🎤 Voice error: ' + e.error, true);
+  r.onend = () => {
+    voiceListening = false;
+    updateVoiceBtn();
+  };
+  return r;
+}
+
+function toggleVoice() {
+  if (!voiceRecognition) voiceRecognition = initVoice();
+  if (!voiceRecognition) {
+    toast('🎤 Voice not supported. Use Chrome or Edge.', true);
+    return;
+  }
+  if (voiceListening) {
+    voiceRecognition.stop();
+    voiceListening = false;
+  } else {
+    voiceRecognition.start();
+    voiceListening = true;
+    toast('🎤 Listening...');
+  }
+  updateVoiceBtn();
+}
+
 VIEWS.dashboard = () => {
   const reqs = STATE.requirements;
   const ready = Math.round(reqs.filter(r=>r.score>=80).length / Math.max(reqs.length,1) * 100);
@@ -281,6 +607,8 @@ VIEWS.dashboard = () => {
     <div class="kpi"><div class="label">Tests Generated</div><div class="value">${STATE.tests.length * 91}</div><div class="delta">+24</div></div>
     <div class="kpi"><div class="label">Scripts Generated</div><div class="value">${STATE.tests.length * 62}</div><div class="delta">+18</div></div>
     <div class="kpi"><div class="label">Trace Coverage</div><div class="value">94%</div><div class="delta">+2%</div></div>
+    <div class="kpi"><div class="label">🎮 Saved Scenarios</div><div class="value">${STATE.scenarios.length}</div><div class="delta">Virtual Bench</div></div>
+    <div class="kpi"><div class="label">🎤 Voice Ready</div><div class="value">${(window.SpeechRecognition || window.webkitSpeechRecognition) ? '✅ Yes' : '❌ Browser N/A'}</div><div class="delta">Speech API</div></div>
   </div>
 
   <div class="grid-2">
@@ -291,6 +619,7 @@ VIEWS.dashboard = () => {
         <button class="primary" onclick="setView('generator')">⚙️ Open Generator</button>
         <button class="secondary" onclick="setView('automation')">▶️ Run Automation</button>
         <button class="secondary" onclick="setView('traceability')">🔗 View Traceability</button>
+        <button class="secondary" onclick="setView('bench')">🎮 Open Virtual Bench</button>
       </div>
     </div>
     <div class="card">
@@ -827,6 +1156,12 @@ function attachHandlers() {
     tabs.querySelectorAll('button').forEach(b => b.onclick = () => renderTab(b.dataset.tab));
     renderTab('itm');
   }
+
+  if (currentView === 'bench') {
+    syncBenchInputs();
+  }
+
+  updateVoiceBtn();
 }
 
 document.querySelectorAll('#topnav button').forEach(b => b.onclick = () => setView(b.dataset.view));
