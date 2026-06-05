@@ -338,6 +338,8 @@ function getBenchDefaults() {
 }
 let benchSignals = getBenchDefaults();
 
+function currentDateString() { return new Date().toISOString().slice(0,10); }
+
 function normalizeBenchSignal(sig, value) {
   if (sig.type === 'range') return Number(value);
   return value;
@@ -413,7 +415,7 @@ function confirmSaveBenchScenario() {
   const input = document.getElementById('benchScenarioName');
   const name = input ? input.value.trim() : '';
   if (!name) return toast('Scenario name required', true);
-  STATE.scenarios.unshift({ name, signals: { ...benchSignals }, createdAt: new Date().toISOString().slice(0,10) });
+  STATE.scenarios.unshift({ name, signals: { ...benchSignals }, createdAt: currentDateString() });
   saveState();
   closeModal();
   setView('bench');
@@ -505,10 +507,11 @@ function speakResponse(text) {
 
 function processVoiceCommand(transcript) {
   const t = transcript.toLowerCase().trim();
+  const ackVoice = () => toast(`Voice: ${transcript} ✓`);
   const go = (view, msg) => {
     setView(view);
     toast(msg);
-    toast(`Voice: ${transcript} ✓`);
+    ackVoice();
     return true;
   };
 
@@ -533,20 +536,20 @@ function processVoiceCommand(transcript) {
       saveState();
       setView('requirements');
       toast(`✓ Opened ${req.id}`);
-      toast(`Voice: ${transcript} ✓`);
+      ackVoice();
       return true;
     }
   }
 
   if (t === 'hello' || t === 'hi testforge') {
     speakResponse('Hello! What can I help you validate?');
-    toast(`Voice: ${transcript} ✓`);
+    ackVoice();
     return true;
   }
 
   if (t === 'help' || t === 'what can you do') {
     speakResponse('Try saying dashboard, requirements, open virtual bench, open CLU underscore zero zero one, or automation.');
-    toast(`Voice: ${transcript} ✓`);
+    ackVoice();
     return true;
   }
 
@@ -564,7 +567,7 @@ function initVoice() {
   r.onresult = (e) => {
     const transcript = e.results[0][0].transcript;
     showVoiceTranscript(transcript);
-    processVoiceCommand(transcript.toLowerCase().trim());
+    processVoiceCommand(transcript);
   };
   r.onerror = (e) => toast('🎤 Voice error: ' + e.error, true);
   r.onend = () => {
@@ -1155,7 +1158,6 @@ function attachHandlers() {
   }
 
   if (currentView === 'bench') {
-    benchSignals = { ...getBenchDefaults(), ...benchSignals };
     syncBenchInputs();
   }
 
