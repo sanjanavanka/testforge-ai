@@ -202,19 +202,19 @@
 <div class="topnav">
   <div class="logo">🔧 TestForge<span>AI</span></div>
   <nav id="topnav">
-    <button data-view="dashboard" class="active">Dashboard</button>
-    <button data-view="projects">Projects</button>
-    <button data-view="requirements">Requirements</button>
-    <button data-view="generator">Generator</button>
-    <button data-view="automation">Automation</button>
-    <button data-view="visual">Visual Validation</button>
-    <button data-view="translator">🌐 Translator</button>
-    <button data-view="bench">🎮 Bench</button>
-    <button data-view="traceability">Traceability</button>
-    <button data-view="predictor">🔮 Predictor</button>
-    <button data-view="reports">Reports</button>
-    <button data-view="brain">🧠 Brain</button>
-    <button data-view="admin">Admin</button>
+    <button data-view="dashboard" class="active" aria-label="Dashboard">Dashboard</button>
+    <button data-view="projects" aria-label="Projects">Projects</button>
+    <button data-view="requirements" aria-label="Requirements">Requirements</button>
+    <button data-view="generator" aria-label="Generator">Generator</button>
+    <button data-view="automation" aria-label="Automation">Automation</button>
+    <button data-view="visual" aria-label="Visual Validation">Visual Validation</button>
+    <button data-view="translator" aria-label="OEM Translator">🌐 Translator</button>
+    <button data-view="bench" aria-label="Virtual Bench">🎮 Bench</button>
+    <button data-view="traceability" aria-label="Traceability">Traceability</button>
+    <button data-view="predictor" aria-label="Defect Predictor">🔮 Predictor</button>
+    <button data-view="reports" aria-label="Reports">Reports</button>
+    <button data-view="brain" aria-label="AI Brain">🧠 Brain</button>
+    <button data-view="admin" aria-label="Admin">Admin</button>
   </nav>
   <div class="user">👤 sanjanavanka</div>
 </div>
@@ -376,6 +376,12 @@ function render() {
 /* ========================  VIEWS  ======================== */
 const VIEWS = {};
 
+
+/* ============ SHARED CONSTANTS ============ */
+const VAGUE_WORDS = ['quickly','properly','correctly','adequately','normally','soon'];
+const RECENT_CHANGE_WINDOW_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+const HOURLY_RATE_USD = 100;
+const REQ_ID_PATTERN = /clu[\s_\-]?\d+/i;
 
 const BENCH_SIGNALS = [
   { id: 'Ignition', type: 'select', options: ['OFF','ACC','ON','CRANK'], default: 'OFF' },
@@ -817,8 +823,7 @@ function addReq() {
 function lintRequirement(text) {
   const t = text.toLowerCase();
   let score = 50;
-  const vague = ['quickly','properly','correctly','adequately','normally','soon'];
-  const hasVague = vague.some(v=>t.includes(v));
+  const hasVague = VAGUE_WORDS.some(v=>t.includes(v));
   const hasTrigger = /\b(when|if|after|upon)\b/.test(t);
   const hasShall = t.includes('shall');
   const hasTiming = /\d+\s*(ms|second|s|hz)/.test(t);
@@ -922,7 +927,7 @@ function calculateEffortSaved() {
   const totalMins = reqMins + testMins + scriptMins + traceMins + auditMins;
   const totalHrs  = Math.round(totalMins / 60);
   const days = Math.round(totalHrs / 8);
-  const dollars = totalHrs * 100;
+  const dollars = totalHrs * HOURLY_RATE_USD;
   return { reqs, tests, scripts, traces, audits, reqMins, testMins, scriptMins, traceMins, auditMins, totalHrs, days, dollars };
 }
 
@@ -930,13 +935,12 @@ function calculateEffortSaved() {
 function calculateRisk(req) {
   let score = 0;
   const t = (req.text || '').toLowerCase();
-  const vague = ['quickly','properly','correctly','adequately','normally','soon'];
   if (req.score < 60) score += 30; else if (req.score < 85) score += 15;
   if (t.length > 200) score += 20; else if (t.length > 100) score += 10;
   if (!req.timing || req.timing === '(missing)') score += 15;
-  if (vague.some(w => t.includes(w))) score += 15;
-  const sevenDaysAgo = Date.now() - 7*24*60*60*1000;
-  if (req.lastModified && new Date(req.lastModified).getTime() > sevenDaysAgo) score += 10;
+  if (VAGUE_WORDS.some(w => t.includes(w))) score += 15;
+  const recentCutoff = Date.now() - RECENT_CHANGE_WINDOW_MS;
+  if (req.lastModified && new Date(req.lastModified).getTime() > recentCutoff) score += 10;
   if (req.variants && req.variants.length > 5) score += 5;
   const linked = STATE.tests.filter(tc => tc.req === req.id);
   if (linked.some(tc => tc.status === 'Fail')) score += 5;
@@ -945,10 +949,9 @@ function calculateRisk(req) {
 
 function topRiskFactor(req) {
   const t = (req.text || '').toLowerCase();
-  const vague = ['quickly','properly','correctly','adequately','normally','soon'];
   if (req.score < 60) return 'Low quality score';
   if (!req.timing || req.timing === '(missing)') return 'No timing specified';
-  if (vague.some(w => t.includes(w))) return 'Vague words present';
+  if (VAGUE_WORDS.some(w => t.includes(w))) return 'Vague words present';
   if (t.length > 200) return 'High complexity';
   if (req.variants && req.variants.length > 5) return 'Many variants';
   return 'Multiple minor factors';
@@ -956,10 +959,9 @@ function topRiskFactor(req) {
 
 function riskAction(req) {
   const t = (req.text || '').toLowerCase();
-  const vague = ['quickly','properly','correctly','adequately','normally','soon'];
   if (req.score < 60) return 'Run Linting — fix quality issues';
   if (!req.timing || req.timing === '(missing)') return 'Add measurable timing parameter';
-  if (vague.some(w => t.includes(w))) return 'Replace vague terms with measurable criteria';
+  if (VAGUE_WORDS.some(w => t.includes(w))) return 'Replace vague terms with measurable criteria';
   if (req.variants && req.variants.length > 5) return 'Split into multiple requirements';
   return 'Re-run all linked tests';
 }
@@ -967,8 +969,7 @@ function riskAction(req) {
 /* ============ JIRA EXPORTER ============ */
 function estimateStoryPoints(req) {
   const t = (req.text || '');
-  const vague = ['quickly','properly','correctly','adequately','normally','soon'];
-  const hasVague = vague.some(w => t.toLowerCase().includes(w));
+  const hasVague = VAGUE_WORDS.some(w => t.toLowerCase().includes(w));
   if (req.variants && req.variants.length > 5) return 8;
   if (t.length > 200 && (t.match(/and|or/gi)||[]).length > 3) return 13;
   if (req.score >= 85 && req.timing && req.timing !== '(missing)' && req.trigger && req.trigger !== '(ambiguous)') return 2;
@@ -1763,10 +1764,14 @@ VIEWS.predictor = () => {
   const med  = risks.filter(r => r.score >= 40 && r.score < 70).length;
   const low  = risks.filter(r => r.score < 40).length;
   const avg  = risks.length ? Math.round(risks.reduce((s,r)=>s+r.score,0)/risks.length) : 0;
-  // Save snapshot to history
-  STATE.riskHistory.push({ ts: Date.now(), avg });
-  if (STATE.riskHistory.length > 30) STATE.riskHistory.shift();
-  saveState();
+  // Save snapshot to history (debounce: only if no entry in the last hour)
+  const now = Date.now();
+  const lastSnap = STATE.riskHistory[STATE.riskHistory.length - 1];
+  if (!lastSnap || (now - lastSnap.ts) > 60 * 60 * 1000) {
+    STATE.riskHistory.push({ ts: now, avg });
+    if (STATE.riskHistory.length > 30) STATE.riskHistory.shift();
+    saveState();
+  }
   return `
   <div class="kpis">
     <div class="kpi"><div class="label">🔴 High Risk</div><div class="value">${high}</div><div class="delta">≥ 70% risk</div></div>
