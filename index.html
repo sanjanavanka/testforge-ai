@@ -148,6 +148,53 @@
   .toast { position:fixed; bottom:50px; right:20px; background:#2E7D32; color:#fff; padding:12px 18px; border-radius:6px; box-shadow:0 4px 12px rgba(0,0,0,.2); z-index:2000; opacity:0; transition:opacity .3s; font-size:14px; }
   .toast.show { opacity:1; }
   .toast.err { background:#C62828; }
+
+  /* Brain Bubble (bottom-left) */
+  .brain-bubble { position:fixed; bottom:30px; left:20px; width:320px; background:#fff;
+                  border:2px solid #1A237E; border-radius:14px;
+                  box-shadow:0 8px 24px rgba(26,35,126,0.25); z-index:400; font-size:13px; }
+  .brain-bubble.minimized { width:56px; height:56px; border-radius:50%; cursor:pointer;
+                            display:flex; align-items:center; justify-content:center;
+                            font-size:28px; background:#1A237E; }
+  .brain-bubble.minimized::before { content:'🧠'; }
+  .brain-bubble-header { display:flex; align-items:center; justify-content:space-between;
+                         padding:8px 12px; border-bottom:1px solid #eee; }
+  .brain-bubble-header span { font-weight:700; color:#1A237E; font-size:13px; }
+  .brain-bubble-msgs { max-height:180px; overflow-y:auto; padding:6px 0; }
+  .brain-msg { padding:8px 12px; margin:6px 8px; border-radius:12px; max-width:80%; font-size:12px; line-height:1.4; }
+  .brain-msg.user { background:#E3F2FD; color:#1565C0; margin-left:auto; text-align:right; }
+  .brain-msg.ai { background:#f5f5f5; color:#1A237E; margin-right:auto; }
+  .brain-bubble-input { display:flex; gap:6px; padding:8px; border-top:1px solid #eee; }
+  .brain-bubble-input input { flex:1; padding:6px 8px; border:1px solid #ddd; border-radius:8px; font-size:12px; }
+  .brain-bubble-input button { padding:6px 10px; border:none; border-radius:8px; cursor:pointer; font-size:13px; }
+  .brain-status { background:#E8F5E9; color:#2E7D32; padding:6px 12px; font-size:11px;
+                  border-bottom:1px solid #C8E6C9; border-radius:12px 12px 0 0; }
+  .brain-chip { display:inline-block; background:#FFF3E0; color:#E65100; padding:4px 10px;
+                border-radius:12px; margin:2px; font-size:11px; cursor:pointer; border:1px solid #FFB74D; }
+  .brain-chip:hover { background:#FFE0B2; }
+  .typing-dots { display:inline-block; }
+  .typing-dots span { animation:typing 1.4s infinite; opacity:0; }
+  .typing-dots span:nth-child(2) { animation-delay:0.2s; }
+  .typing-dots span:nth-child(3) { animation-delay:0.4s; }
+  @keyframes typing { 0%,60%,100% { opacity:0; } 30% { opacity:1; } }
+
+  /* Translator layout */
+  .translator-cols { display:grid; grid-template-columns:1fr auto 1fr; gap:14px; align-items:start; margin-bottom:14px; }
+  .glossary-table { font-size:12px; }
+  .glossary-table td { padding:4px 8px; border-bottom:1px solid #eee; }
+
+  /* Predictor risk bars */
+  .risk-bar-wrap { display:flex; align-items:center; gap:8px; margin:4px 0; font-size:12px; }
+  .risk-bar-bg { flex:1; height:16px; background:#eee; border-radius:4px; overflow:hidden; cursor:pointer; }
+  .risk-bar-fill { height:100%; border-radius:4px; transition:width 0.4s; }
+  .risk-high { background:#ef5350; }
+  .risk-medium { background:#FFA726; }
+  .risk-low { background:#66BB6A; }
+
+  /* ROI section */
+  .roi-line { display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid #eee; font-size:13px; }
+  .roi-line .lbl { color:#555; }
+  .roi-line .val { font-weight:700; color:#1A237E; }
 </style>
 </head>
 <body>
@@ -155,16 +202,19 @@
 <div class="topnav">
   <div class="logo">🔧 TestForge<span>AI</span></div>
   <nav id="topnav">
-    <button data-view="dashboard" class="active">Dashboard</button>
-    <button data-view="projects">Projects</button>
-    <button data-view="requirements">Requirements</button>
-    <button data-view="generator">Generator</button>
-    <button data-view="automation">Automation</button>
-    <button data-view="visual">Visual Validation</button>
-    <button data-view="bench">🎮 Bench</button>
-    <button data-view="traceability">Traceability</button>
-    <button data-view="reports">Reports</button>
-    <button data-view="admin">Admin</button>
+    <button data-view="dashboard" class="active" aria-label="Dashboard">Dashboard</button>
+    <button data-view="projects" aria-label="Projects">Projects</button>
+    <button data-view="requirements" aria-label="Requirements">Requirements</button>
+    <button data-view="generator" aria-label="Generator">Generator</button>
+    <button data-view="automation" aria-label="Automation">Automation</button>
+    <button data-view="visual" aria-label="Visual Validation">Visual Validation</button>
+    <button data-view="translator" aria-label="OEM Translator">🌐 Translator</button>
+    <button data-view="bench" aria-label="Virtual Bench">🎮 Bench</button>
+    <button data-view="traceability" aria-label="Traceability">Traceability</button>
+    <button data-view="predictor" aria-label="Defect Predictor">🔮 Predictor</button>
+    <button data-view="reports" aria-label="Reports">Reports</button>
+    <button data-view="brain" aria-label="AI Brain">🧠 Brain</button>
+    <button data-view="admin" aria-label="Admin">Admin</button>
   </nav>
   <div class="user">👤 sanjanavanka</div>
 </div>
@@ -187,6 +237,7 @@
 <div class="toast" id="toast"></div>
 <button class="voice-btn" id="voiceBtn" onclick="toggleVoice()" title="Voice Commands">🎤</button>
 <div class="voice-transcript" id="voiceTranscript" style="display:none;"></div>
+<div id="brain-bubble"></div>
 
 <script>
 /* ===================================================================
@@ -253,6 +304,12 @@ function resetState() { localStorage.removeItem(STORE_KEY); STATE = JSON.parse(J
 let STATE = loadState();
 STATE.scenarios = Array.isArray(STATE.scenarios) ? STATE.scenarios : [];
 STATE.voiceEnabled = STATE.voiceEnabled !== false;
+STATE.brainHistory = Array.isArray(STATE.brainHistory) ? STATE.brainHistory : [];
+STATE.brainMinimized = STATE.brainMinimized === true;
+STATE.translatedRequirements = STATE.translatedRequirements && typeof STATE.translatedRequirements === 'object' ? STATE.translatedRequirements : {};
+STATE.customTermbase = STATE.customTermbase && typeof STATE.customTermbase === 'object' ? STATE.customTermbase : {};
+STATE.riskHistory = Array.isArray(STATE.riskHistory) ? STATE.riskHistory : [];
+STATE.effortSaved = STATE.effortSaved && typeof STATE.effortSaved === 'object' ? STATE.effortSaved : { reqs:0, tests:0, scripts:0, traces:0, audits:0 };
 
 /* ---------------- Helpers ---------------- */
 function toast(msg, isErr) {
@@ -281,9 +338,12 @@ const SIDEBAR_MAP = {
   generator:    ['Active Requirement','Test Intent (ITM)','Scenarios','Interface Mapping','Automation Output','Visual Validation'],
   automation:   ['Test Suites','Environments','Schedules','Live Runs','Results'],
   visual:       ['Cluster View','Telltale Library','OCR Checks','Timing Analyzer'],
+  translator:   ['Quick Translate','OEM Termbase','Bulk Translate'],
   bench:        ['Live Cluster', 'Saved Scenarios', 'Signal Library'],
   traceability: ['Graph View','Coverage Matrix','Evidence Pack','Change Impact'],
-  reports:      ['Requirement Quality','Test Coverage','Automation Readiness','Compliance (ASPICE)','Productivity'],
+  predictor:    ['Risk Dashboard','High Risk Items','Heuristics','Recommendations'],
+  reports:      ['Requirement Quality','Test Coverage','Automation Readiness','Compliance (ASPICE)','Productivity','ROI Dashboard'],
+  brain:        ['Chat','Quick Prompts','History','Knowledge Tips'],
   admin:        ['Integrations','Vocabulary','Templates','Users','Data Management']
 };
 
@@ -301,12 +361,27 @@ function setView(v) {
   renderSidebar(v);
   document.getElementById('workspace').innerHTML = (VIEWS[v] || (()=>'<div class="card">Not implemented</div>'))();
   attachHandlers();
+  // Scroll brain chat to bottom when entering brain view
+  if (v === 'brain') {
+    const chat = document.getElementById('brain-chat');
+    if (chat) chat.scrollTop = chat.scrollHeight;
+  }
 }
-function render() { setView(currentView); document.getElementById('reqCount').textContent = STATE.requirements.length + ' requirements loaded'; }
+function render() {
+  setView(currentView);
+  document.getElementById('reqCount').textContent = STATE.requirements.length + ' requirements loaded';
+  renderBrainBubble();
+}
 
 /* ========================  VIEWS  ======================== */
 const VIEWS = {};
 
+
+/* ============ SHARED CONSTANTS ============ */
+const VAGUE_WORDS = ['quickly','properly','correctly','adequately','normally','soon'];
+const RECENT_CHANGE_WINDOW_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+const HOURLY_RATE_USD = 100;
+const REQ_ID_PATTERN = /clu[\s_\-]?\d+/i;
 
 const BENCH_SIGNALS = [
   { id: 'Ignition', type: 'select', options: ['OFF','ACC','ON','CRANK'], default: 'OFF' },
@@ -597,6 +672,9 @@ function toggleVoice() {
 VIEWS.dashboard = () => {
   const reqs = STATE.requirements;
   const ready = Math.round(reqs.filter(r=>r.score>=80).length / Math.max(reqs.length,1) * 100);
+  const risks = reqs.map(r => calculateRisk(r));
+  const avgRisk = risks.length ? Math.round(risks.reduce((a,b)=>a+b,0)/risks.length) : 0;
+  const effort = calculateEffortSaved();
   return `
   <h1 style="font-size:22px;margin-bottom:6px;">Welcome back, sanjanavanka 👋</h1>
   <p style="color:#666;margin-bottom:18px;">Here's what's happening in your <b>EV Cluster Program</b> today.</p>
@@ -609,6 +687,10 @@ VIEWS.dashboard = () => {
     <div class="kpi"><div class="label">Trace Coverage</div><div class="value">94%</div><div class="delta">+2%</div></div>
     <div class="kpi"><div class="label">🎮 Saved Scenarios</div><div class="value">${STATE.scenarios.length}</div><div class="delta">Virtual Bench</div></div>
     <div class="kpi"><div class="label">🎤 Voice Ready</div><div class="value">${(window.SpeechRecognition || window.webkitSpeechRecognition) ? '✅ Yes' : '❌ Browser N/A'}</div><div class="delta">Speech API</div></div>
+    <div class="kpi"><div class="label">🧠 AI Brain</div><div class="value">${STATE.brainHistory.length > 0 ? 'Active' : 'Idle'}</div><div class="delta">${STATE.brainHistory.length} messages</div></div>
+    <div class="kpi"><div class="label">🌐 OEM Coverage</div><div class="value">${Object.keys(OEM_TERMBASE).length - 1}</div><div class="delta">OEMs supported</div></div>
+    <div class="kpi"><div class="label">🔮 Avg Risk Score</div><div class="value">${avgRisk}%</div><div class="delta">${avgRisk >= 70 ? '🔴 High' : avgRisk >= 40 ? '🟡 Medium' : '🟢 Low'}</div></div>
+    <div class="kpi"><div class="label">💰 Effort Saved</div><div class="value">${effort.totalHrs}h</div><div class="delta">≈ $${(effort.dollars/1000).toFixed(0)}K saved</div></div>
   </div>
 
   <div class="grid-2">
@@ -620,6 +702,10 @@ VIEWS.dashboard = () => {
         <button class="secondary" onclick="setView('automation')">▶️ Run Automation</button>
         <button class="secondary" onclick="setView('traceability')">🔗 View Traceability</button>
         <button class="secondary" onclick="setView('bench')">🎮 Open Virtual Bench</button>
+        <button class="secondary" onclick="setView('brain')">🧠 Ask the Brain</button>
+        <button class="secondary" onclick="setView('translator')">🌐 Translate Requirements</button>
+        <button class="secondary" onclick="setView('predictor')">🔮 Predict Defects</button>
+        <button class="secondary" onclick="setView('reports')">💰 View ROI</button>
       </div>
     </div>
     <div class="card">
@@ -684,6 +770,7 @@ VIEWS.requirements = () => {
         <button class="secondary" onclick="openModal(addReqModal())">+ Add Requirement</button>
         <button class="secondary" onclick="lintAll()">🔍 Run Linting on All</button>
         <button class="primary" onclick="setView('generator')">⚙️ Open in Generator</button>
+        <button class="secondary" onclick="exportAllJiraCSV()">🎫 Bulk Jira Export</button>
       </div>
     </div>
     <input type="file" id="reqFile" accept=".json,.csv" style="display:none" onchange="handleReqFile(event)"/>
@@ -696,7 +783,8 @@ VIEWS.requirements = () => {
           <td><span class="badge ${cls}">${r.score}%</span></td>
           <td><span class="badge blue">${r.status}</span></td>
           <td>${r.variants.join(', ')}</td>
-          <td><button class="secondary" onclick="event.stopPropagation();sendToGen('${r.id}')">→ Generator</button></td>
+          <td><button class="secondary" onclick="event.stopPropagation();sendToGen('${r.id}')">→ Generator</button>
+              <button class="secondary" onclick="event.stopPropagation();openJiraModal('${r.id}')" style="font-size:11px;">🎫 Jira</button></td>
         </tr>`;
       }).join('')}
     </table>
@@ -735,8 +823,7 @@ function addReq() {
 function lintRequirement(text) {
   const t = text.toLowerCase();
   let score = 50;
-  const vague = ['quickly','properly','correctly','adequately','normally','soon'];
-  const hasVague = vague.some(v=>t.includes(v));
+  const hasVague = VAGUE_WORDS.some(v=>t.includes(v));
   const hasTrigger = /\b(when|if|after|upon)\b/.test(t);
   const hasShall = t.includes('shall');
   const hasTiming = /\d+\s*(ms|second|s|hz)/.test(t);
@@ -751,6 +838,408 @@ function lintRequirement(text) {
     expected: hasShall ? text.match(/shall[^.]+/i)?.[0] || 'detected' : '(ambiguous)',
     timing: hasTiming ? text.match(/\d+\s*(ms|second|s|hz)/i)?.[0] : '(missing)'
   };
+}
+
+/* ============ OEM TERMBASE ============ */
+const OEM_TERMBASE = {
+  BMW: {
+    'cluster': 'Kombi', 'instrument cluster': 'Kombiinstrument',
+    'warning': 'Warnung', 'fault': 'Fehler', 'speedometer': 'Tacho',
+    'turn signal': 'Blinker', 'headlight': 'Scheinwerfer', 'engine': 'Motor',
+    'door': 'Tür', 'seatbelt': 'Sicherheitsgurt'
+  },
+  Mercedes: {
+    'cluster': 'Kombi-Instrument', 'warning': 'Warnmeldung', 'fault': 'Störung',
+    'HMI': 'MMI', 'infotainment': 'COMAND', 'air conditioning': 'Klimaanlage',
+    'display': 'Anzeigeeinheit', 'telltale': 'Kontrollleuchte'
+  },
+  VW: {
+    'cluster': 'Schalttafeleinsatz', 'warning': 'Warnhinweis', 'fault': 'Defekt',
+    'infotainment': 'Discover Media', 'telltale': 'Kontrolllampe', 'display': 'Anzeige'
+  },
+  Stellantis: {
+    'cluster': 'Cluster', 'warning': 'Avvertimento', 'fault': 'Guasto',
+    'infotainment': 'Uconnect', 'telltale': 'Spia', 'display': 'Display'
+  },
+  Ford: {
+    'cluster': 'IPC', 'warning': 'Alert', 'fault': 'DTC',
+    'infotainment': 'SYNC', 'telltale': 'Indicator Lamp', 'display': 'Message Center'
+  },
+  GM: {
+    'cluster': 'DIC', 'warning': 'Indicator', 'fault': 'DTC',
+    'infotainment': 'Infotainment', 'telltale': 'Warning Light', 'display': 'Driver Information Center'
+  },
+  Toyota: {
+    'cluster': 'Combination Meter', 'warning': 'Warning Lamp', 'fault': 'DTC',
+    'infotainment': 'Entune', 'telltale': 'Warning Indicator', 'display': 'Multi-Information Display'
+  },
+  Generic: {}
+};
+
+function translateText(text, sourceOEM, targetOEM) {
+  let translated = text;
+  const changes = [];
+  // First reverse-map source OEM terms back to generic English keys
+  const srcMap = OEM_TERMBASE[sourceOEM] || {};
+  Object.entries(srcMap).forEach(([generic, oem]) => {
+    const re = new RegExp(oem.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+    if (re.test(translated)) {
+      translated = translated.replace(re, generic);
+    }
+  });
+  // Then map generic → target OEM
+  const tgtMap = OEM_TERMBASE[targetOEM] || {};
+  // Also apply custom termbase
+  const combined = Object.assign({}, tgtMap, STATE.customTermbase[targetOEM] || {});
+  Object.entries(combined).forEach(([generic, oem]) => {
+    const re = new RegExp('\\b' + generic.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'gi');
+    if (re.test(translated)) {
+      translated = translated.replace(re, oem);
+      changes.push({ from: generic, to: oem });
+    }
+  });
+  return { translated, changes };
+}
+
+/* ============ EFFORT CONSTANTS & ROI ============ */
+const EFFORT_CONSTANTS = {
+  manualReqLinting: 30,
+  manualTestCaseDesign: 150,
+  manualScriptCAPL: 90,
+  manualScriptPython: 90,
+  manualScriptRobot: 60,
+  manualSignalMapping: 45,
+  manualTraceability: 25,
+  aspiceAuditPrep: 7200
+};
+
+function calculateEffortSaved() {
+  const reqs = STATE.requirements.length;
+  const tests = STATE.tests.length;
+  const scripts = STATE.tests.filter(t => ['CAPL','Python','Robot'].includes(t.framework)).length;
+  const traces = STATE.tests.length;
+  const audits = 1;
+  const reqMins   = reqs   * EFFORT_CONSTANTS.manualReqLinting;
+  const testMins  = tests  * EFFORT_CONSTANTS.manualTestCaseDesign;
+  const scriptMins = scripts * EFFORT_CONSTANTS.manualScriptCAPL;
+  const traceMins = traces * EFFORT_CONSTANTS.manualTraceability;
+  const auditMins = audits * EFFORT_CONSTANTS.aspiceAuditPrep;
+  const totalMins = reqMins + testMins + scriptMins + traceMins + auditMins;
+  const totalHrs  = Math.round(totalMins / 60);
+  const days = Math.round(totalHrs / 8);
+  const dollars = totalHrs * HOURLY_RATE_USD;
+  return { reqs, tests, scripts, traces, audits, reqMins, testMins, scriptMins, traceMins, auditMins, totalHrs, days, dollars };
+}
+
+/* ============ RISK / DEFECT PREDICTOR ============ */
+function calculateRisk(req) {
+  let score = 0;
+  const t = (req.text || '').toLowerCase();
+  if (req.score < 60) score += 30; else if (req.score < 85) score += 15;
+  if (t.length > 200) score += 20; else if (t.length > 100) score += 10;
+  if (!req.timing || req.timing === '(missing)') score += 15;
+  if (VAGUE_WORDS.some(w => t.includes(w))) score += 15;
+  const recentCutoff = Date.now() - RECENT_CHANGE_WINDOW_MS;
+  if (req.lastModified && new Date(req.lastModified).getTime() > recentCutoff) score += 10;
+  if (req.variants && req.variants.length > 5) score += 5;
+  const linked = STATE.tests.filter(tc => tc.req === req.id);
+  if (linked.some(tc => tc.status === 'Fail')) score += 5;
+  return Math.min(100, score);
+}
+
+function topRiskFactor(req) {
+  const t = (req.text || '').toLowerCase();
+  if (req.score < 60) return 'Low quality score';
+  if (!req.timing || req.timing === '(missing)') return 'No timing specified';
+  if (VAGUE_WORDS.some(w => t.includes(w))) return 'Vague words present';
+  if (t.length > 200) return 'High complexity';
+  if (req.variants && req.variants.length > 5) return 'Many variants';
+  return 'Multiple minor factors';
+}
+
+function riskAction(req) {
+  const t = (req.text || '').toLowerCase();
+  if (req.score < 60) return 'Run Linting — fix quality issues';
+  if (!req.timing || req.timing === '(missing)') return 'Add measurable timing parameter';
+  if (VAGUE_WORDS.some(w => t.includes(w))) return 'Replace vague terms with measurable criteria';
+  if (req.variants && req.variants.length > 5) return 'Split into multiple requirements';
+  return 'Re-run all linked tests';
+}
+
+/* ============ JIRA EXPORTER ============ */
+function estimateStoryPoints(req) {
+  const t = (req.text || '');
+  const hasVague = VAGUE_WORDS.some(w => t.toLowerCase().includes(w));
+  if (req.variants && req.variants.length > 5) return 8;
+  if (t.length > 200 && (t.match(/and|or/gi)||[]).length > 3) return 13;
+  if (req.score >= 85 && req.timing && req.timing !== '(missing)' && req.trigger && req.trigger !== '(ambiguous)') return 2;
+  if (req.score >= 60) return 3;
+  if (req.score < 60 || hasVague) return 5;
+  return 3;
+}
+
+function generateJiraStory(req) {
+  const linked = STATE.tests.filter(t => t.req === req.id);
+  const sp = estimateStoryPoints(req);
+  return `Summary: [REQ-${req.id}] ${req.title}
+
+Description:
+*Requirement:* ${req.text}
+
+*Acceptance Criteria:*
+- Trigger condition met: ${req.trigger || 'TBD'}
+- Expected behavior: ${req.expected || 'TBD'}
+- Timing: ${req.timing || 'TBD'}
+- Quality score: ${req.score}%
+
+*Linked Tests:*
+${linked.length ? linked.map(t => '- ' + t.id + ': ' + t.name).join('\n') : '- None yet'}
+
+*Variants:* ${(req.variants || []).length}
+
+Story Points: ${sp}
+Labels: validation, ${req.type || 'functional'}, auto-generated
+Issue Type: Story
+Epic Link: TBD`;
+}
+
+function exportAllJiraCSV() {
+  const header = 'Summary,Description,Story Points,Labels,Issue Type';
+  const rows = STATE.requirements.map(req => {
+    const sp = estimateStoryPoints(req);
+    const summary = '[REQ-' + req.id + '] ' + req.title;
+    const desc = req.text.replace(/"/g,"'");
+    return '"' + summary + '","' + desc + '",' + sp + ',"validation,auto-generated",Story';
+  });
+  downloadFile('jira_stories.csv', header + '\n' + rows.join('\n'), 'text/csv');
+  toast('Jira CSV exported ✓');
+}
+
+function openJiraModal(reqId) {
+  const req = STATE.requirements.find(r => r.id === reqId) || selectedReq();
+  const story = generateJiraStory(req);
+  openModal('<h2>🎫 Jira Story — ' + req.id + '</h2>' +
+    '<pre style="white-space:pre-wrap;font-size:12px;background:#f9fafc;color:#333;border:1px solid #eee;padding:12px;border-radius:6px;">' +
+    story.replace(/</g,'&lt;') + '</pre>' +
+    '<div class="actions">' +
+    '<button class="primary" onclick="navigator.clipboard&&navigator.clipboard.writeText(document.querySelector(\'#modalContent pre\').textContent).then(()=>toast(\'Copied ✓\'))">📋 Copy</button>' +
+    '<button class="secondary" onclick="downloadFile(\'' + req.id + '_jira.txt\',document.querySelector(\'#modalContent pre\').textContent)">📥 Download</button>' +
+    '<button class="secondary" onclick="closeModal()">Close</button>' +
+    '</div>');
+}
+
+/* ============ LLM BRAIN ============ */
+const LLM_TIPS = [
+  { kw: 'polarion', tip: 'Polarion tip: Use "shall" statements with clear trigger/expected pairs. Map each requirement to at least one test case for ASPICE SWE.5 compliance.' },
+  { kw: 'capl', tip: 'CAPL tip: Use testWaitForSignalMatch() for timing checks. Always set preconditions with setSignal() before your trigger. Add testStepPass/Fail for traceable results.' },
+  { kw: 'signal', tip: 'Signal tip: Define signal range, resolution, and default state in your DBC/ARXML. Boundary values (0%, 99%, 100%) are critical test points.' },
+  { kw: 'aspice', tip: 'ASPICE tip: SWE.5 requires bidirectional traceability from system requirements to test cases. TestForge AI auto-generates this trace matrix for you.' },
+  { kw: 'itm', tip: 'ITM tip: The Intermediate Test Model separates test intent from framework. Write ITM first, then generate CAPL/Python/Robot from it for multi-framework coverage.' },
+  { kw: 'autosar', tip: 'AUTOSAR tip: Map signals to PDU/signal groups in the ARXML. Use the E2E profile when testing safety-critical signals like ABS or airbag.' },
+  { kw: 'iso 26262', tip: 'ISO 26262 tip: For ASIL-B and above, require 100% MC/DC coverage. TestForge AI marks requirements with missing timing as potential functional safety gaps.' },
+  { kw: 'timing', tip: 'Timing tip: Every requirement should specify a measurable time constraint (e.g., "within 1000 ms"). Vague terms like "quickly" fail linting and risk ambiguity.' },
+  { kw: 'boundary', tip: 'Boundary test tip: Always test at exact limit, one below, and one above. For a 10% fuel threshold: test at 9%, 10%, and 11%.' },
+  { kw: 'coverage', tip: 'Coverage tip: TestForge tracks requirement-to-test coverage. Aim for 100% nominal coverage + 80% negative/boundary for ASPICE readiness.' },
+  { kw: 'hmi', tip: 'HMI tip: Visual validation requires both OCR text checks and pixel-level telltale color verification. Define reference baselines in your golden-image library.' },
+  { kw: 'variant', tip: 'Variant tip: EU/US/EV variants often differ in threshold values (e.g., speed limits, fuel units). Use the Generator\'s variant matrix to auto-expand test cases.' },
+  { kw: 'dbc', tip: 'DBC tip: Import your DBC file to enable signal-level interface mapping. TestForge reads message IDs and signal definitions to auto-populate the mapping table.' },
+  { kw: 'review', tip: 'Review tip: Requirement linting score ≥85% is the recommended threshold for moving to test generation. Fix vague words and add timing to improve score.' },
+  { kw: 'traceability', tip: 'Traceability tip: Each requirement should link to at least one nominal test, one boundary test, and one negative test for full traceability.' },
+  { kw: 'edge case', tip: 'Edge case tip: Common automotive edge cases include: simultaneous faults (priority), power cycle during operation, CAN bus timeout, signal stuck-at, and temperature extremes.' },
+  { kw: 'robot', tip: 'Robot Framework tip: Use the CAN Library keywords: Send CAN Message, Receive CAN Signal, Verify Signal Value. Keyword-driven approach improves readability for non-engineers.' },
+  { kw: 'python', tip: 'Python tip: Use pytest fixtures for test setup/teardown. The CANoe Python API (win32com.client) or cantools library can control signals in your test functions.' },
+  { kw: 'seatbelt', tip: 'Seatbelt telltale tip: Test all combinations of ignition state × seatbelt state × speed. The EU OBD regulation requires chime after 20 seconds at speed > 25 km/h.' },
+  { kw: 'default', tip: 'Best practice: Write requirements in the format "When [trigger], the system shall [expected result] within [timing]." This maximizes linting score and test coverage.' }
+];
+
+function processLLMQuery(question) {
+  const q = question.toLowerCase().trim();
+
+  // Greeting
+  if (/^(hello|hi|hey|good morning|good afternoon)/.test(q)) {
+    return 'Hello! 👋 I\'m the TestForge AI Brain — running fully offline.\n\nI can help you with:\n- **Explain** a requirement (try "explain CLU_001")\n- **Diagnose** test failures ("why did TC_003 fail")\n- **Improve** requirements ("improve CLU_004")\n- **Generate** edge cases ("edge cases for CLU_002")\n- **Summarize** your project ("summarize project")\n\nWhat would you like to know?';
+  }
+
+  // Explain requirement
+  const explainMatch = q.match(/explain\s+(clu[\s_\-]?\d+)/i);
+  if (explainMatch) {
+    const reqId = explainMatch[1].toUpperCase().replace(/[\s\-]/g,'_');
+    const req = STATE.requirements.find(r => r.id === reqId);
+    if (req) {
+      const lint = lintRequirement(req.text);
+      return '**' + req.id + ': ' + req.title + '**\n\n' +
+        req.text + '\n\n' +
+        '**Linting Analysis:**\n' +
+        '- Testability score: ' + req.score + '%\n' +
+        '- Trigger: ' + req.trigger + '\n' +
+        '- Expected: ' + req.expected + '\n' +
+        '- Timing: ' + req.timing + '\n' +
+        '- Variants: ' + (req.variants||[]).join(', ') + '\n\n' +
+        (req.score < 60 ? '⚠️ **Suggestion:** This requirement has a low score. Add measurable timing and remove vague terms.' :
+         req.score < 85 ? '💡 **Suggestion:** Good requirement. Adding timing precision would push score above 85%.' :
+         '✅ **Well-formed requirement** — ready for test generation.');
+    }
+    return 'Requirement ' + explainMatch[1].toUpperCase() + ' not found in current STATE. Try one of: ' + STATE.requirements.map(r=>r.id).join(', ');
+  }
+
+  // Why did a test fail
+  const failMatch = q.match(/why.*(tc[\s_\-]?\d+|test\s+\d+)/i);
+  if (failMatch || (q.includes('why') && q.includes('fail'))) {
+    let tcId = failMatch ? failMatch[1].toUpperCase().replace(/[\s\-]/g,'_') : null;
+    const tc = tcId ? STATE.tests.find(t => t.id === tcId) : STATE.tests.find(t => t.status === 'Fail');
+    if (tc) {
+      return '**' + tc.id + ': ' + tc.name + '** — Status: ' + tc.status + '\n\n' +
+        '**3 Probable Causes based on test type (' + tc.type + '):**\n' +
+        (tc.type === 'Negative' || tc.type === 'Timeout' ?
+          '1. Signal did not return to default state within timeout window\n2. CAN bus message was not transmitted after stimulus removal\n3. Precondition state was not correctly established before test' :
+        tc.type === 'Boundary' ?
+          '1. Timing boundary exceeded by 1–5 ms (timing jitter on HIL bench)\n2. Signal threshold value mismatch between DBC and requirement\n3. Clock synchronization issue between stimulus and measurement' :
+          '1. Signal mapping mismatch — verify DBC signal name vs. test script\n2. Precondition not met — check initial state setup\n3. Timing window too tight — verify requirement tolerance') + '\n\n' +
+        '**Linked requirement:** ' + tc.req + '\n**Framework:** ' + tc.framework + '\n\n' +
+        '💡 Open the Automation view to re-run this test with debug logging.';
+    }
+    return 'No failing test found. All current tests may be passing. Check the Automation view for the latest run results.';
+  }
+
+  // Improve / suggest
+  const improveMatch = q.match(/(?:improve|suggest|fix|enhance)\s+(clu[\s_\-]?\d+)/i);
+  if (improveMatch || q.includes('improve') || q.includes('suggest improvement')) {
+    const reqId = improveMatch ? improveMatch[1].toUpperCase().replace(/[\s\-]/g,'_') : STATE.selectedReqId;
+    const req = STATE.requirements.find(r => r.id === reqId) || selectedReq();
+    const t = req.text.toLowerCase();
+    const suggestions = [];
+    if (!req.timing || req.timing === '(missing)') suggestions.push('Add measurable timing (e.g., "within 500 ms")');
+    if (['quickly','properly','correctly','adequately','normally','soon'].some(w=>t.includes(w))) suggestions.push('Replace vague words with quantifiable criteria');
+    if (!req.trigger || req.trigger === '(ambiguous)') suggestions.push('Add explicit trigger condition (When/If/After)');
+    if (!req.expected || req.expected === '(ambiguous)') suggestions.push('Add clear "shall" expected result statement');
+    if (!suggestions.length) suggestions.push('Requirement looks well-formed! Consider adding more variant coverage.');
+    return '**Improvement suggestions for ' + req.id + '** (score: ' + req.score + '%):\n\n' +
+      suggestions.map((s,i) => (i+1) + '. ' + s).join('\n') + '\n\n' +
+      '**Current text:**\n' + req.text + '\n\nFix these issues to raise the testability score above 85%.';
+  }
+
+  // Edge cases
+  if (q.includes('edge case') || q.includes('negative') || q.includes('boundary')) {
+    const req = selectedReq();
+    return '**5 Edge Cases for ' + req.id + ' (' + req.title + '):**\n\n' +
+      '1. **Simultaneous fault:** Trigger active + competing higher-priority warning\n' +
+      '2. **Power cycle:** Ignition cycle mid-operation — verify state recovery\n' +
+      '3. **CAN timeout:** Signal source lost for >500 ms — verify default/safe state\n' +
+      '4. **Boundary value:** Condition at exactly the threshold (e.g., 10% fuel)\n' +
+      '5. **Rapid toggle:** Trigger applied and removed within 100 ms — verify no flicker\n\n' +
+      '💡 Open the Generator → Scenarios tab to auto-add these to your test suite.';
+  }
+
+  // Compare two requirements
+  const compareMatch = q.match(/(clu[\s_\-]?\d+)\s+(?:and|vs|versus|compare)\s+(clu[\s_\-]?\d+)/i);
+  if (compareMatch || q.includes('compare')) {
+    const id1 = compareMatch ? compareMatch[1].toUpperCase().replace(/[\s\-]/g,'_') : STATE.requirements[0]?.id;
+    const id2 = compareMatch ? compareMatch[2].toUpperCase().replace(/[\s\-]/g,'_') : STATE.requirements[1]?.id;
+    const r1 = STATE.requirements.find(r=>r.id===id1);
+    const r2 = STATE.requirements.find(r=>r.id===id2);
+    if (r1 && r2) {
+      return '**Comparison: ' + r1.id + ' vs ' + r2.id + '**\n\n' +
+        '| Attribute | ' + r1.id + ' | ' + r2.id + ' |\n' +
+        '|---|---|---|\n' +
+        '| Title | ' + r1.title + ' | ' + r2.title + ' |\n' +
+        '| Score | ' + r1.score + '% | ' + r2.score + '% |\n' +
+        '| Timing | ' + r1.timing + ' | ' + r2.timing + ' |\n' +
+        '| Variants | ' + (r1.variants||[]).length + ' | ' + (r2.variants||[]).length + ' |\n' +
+        '| Status | ' + r1.status + ' | ' + r2.status + ' |';
+    }
+  }
+
+  // Summarize project
+  if (q.includes('summar') || q.includes('overview') || q.includes('status')) {
+    const reqs = STATE.requirements;
+    const tests = STATE.tests;
+    const pass = tests.filter(t=>t.status==='Pass').length;
+    const ready = Math.round(reqs.filter(r=>r.score>=80).length/Math.max(reqs.length,1)*100);
+    return '**Project Summary — EV Cluster Program**\n\n' +
+      '- 📑 Requirements: ' + reqs.length + ' (' + reqs.filter(r=>r.score>=85).length + ' high quality)\n' +
+      '- 🧪 Tests: ' + tests.length + ' (' + pass + ' passing, ' + (tests.length-pass) + ' failing)\n' +
+      '- 🎮 Scenarios: ' + STATE.scenarios.length + ' saved\n' +
+      '- 📊 Automation-ready: ' + ready + '%\n' +
+      '- 🔗 Trace coverage: 94%\n\n' +
+      (ready < 80 ? '⚠️ Several requirements need quality improvements before test generation.' :
+       '✅ Project is in good shape for test generation.');
+  }
+
+  // Best practice / how to
+  if (q.includes('best practice') || q.includes('how to') || q.includes('howto')) {
+    const words = q.split(/\s+/);
+    const tip = LLM_TIPS.find(tip => words.some(w => tip.kw.includes(w) || w.includes(tip.kw)));
+    if (tip) return '💡 **' + tip.kw.charAt(0).toUpperCase() + tip.kw.slice(1) + ' Best Practice:**\n\n' + tip.tip;
+    return '💡 **General Best Practice:**\n\n' + LLM_TIPS[LLM_TIPS.length-1].tip;
+  }
+
+  // Route to generator
+  if (q.includes('generate') && (q.includes('capl') || q.includes('python') || q.includes('robot'))) {
+    setTimeout(() => setView('generator'), 800);
+    return '🚀 Routing you to the Generator for ' + (selectedReq().id) + '...\n\nI\'ll open the Output tab with your selected framework. Make sure the right requirement is selected!';
+  }
+
+  // Keyword tip search
+  const tip = LLM_TIPS.find(t => q.includes(t.kw));
+  if (tip) return '💡 **' + tip.kw.charAt(0).toUpperCase() + tip.kw.slice(1) + ' Tip:**\n\n' + tip.tip;
+
+  return 'I can help with: requirements, tests, scripts, edge cases, and best practices.\n\nTry asking:\n- "explain CLU_001"\n- "why did TC_003 fail"\n- "edge cases for CLU_002"\n- "best practice for CAPL"\n- "summarize project"';
+}
+
+function formatBrainMsg(text) {
+  return text
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/`([^`]+)`/g, '<code style="background:#eee;padding:1px 4px;border-radius:3px;">$1</code>')
+    .replace(/\n/g, '<br>');
+}
+
+function sendBrainMessage(text) {
+  if (!text || !text.trim()) return;
+  STATE.brainHistory.push({ role:'user', text: text.trim(), timestamp: Date.now() });
+  saveState();
+  renderBrainBubble();
+  if (currentView === 'brain') { setView('brain'); return; }
+  // Show typing indicator then respond
+  setTimeout(() => {
+    const response = processLLMQuery(text.trim());
+    STATE.brainHistory.push({ role:'ai', text: response, timestamp: Date.now() });
+    saveState();
+    renderBrainBubble();
+    if (currentView === 'brain') setView('brain');
+  }, 600);
+}
+
+function renderBrainBubble() {
+  const div = document.getElementById('brain-bubble');
+  if (!div) return;
+  if (STATE.brainMinimized) {
+    div.className = 'brain-bubble minimized';
+    div.innerHTML = '';
+    div.onclick = () => { STATE.brainMinimized = false; saveState(); renderBrainBubble(); };
+    return;
+  }
+  div.className = 'brain-bubble';
+  div.onclick = null;
+  const recent = STATE.brainHistory.slice(-4);
+  div.innerHTML =
+    '<div class="brain-status">🟢 Running Locally · Privacy-Safe · No Data Sent</div>' +
+    '<div class="brain-bubble-header">' +
+      '<span>🧠 AI Brain</span>' +
+      '<div style="display:flex;gap:4px;">' +
+        '<button onclick="setView(\'brain\')" style="background:#1A237E;color:#fff;border:none;padding:3px 8px;border-radius:6px;font-size:11px;cursor:pointer;">Expand</button>' +
+        '<button onclick="STATE.brainMinimized=true;saveState();renderBrainBubble();" style="background:#eee;border:none;padding:3px 8px;border-radius:6px;font-size:11px;cursor:pointer;">—</button>' +
+      '</div>' +
+    '</div>' +
+    '<div class="brain-bubble-msgs" id="brain-bubble-msgs">' +
+      (recent.length === 0 ? '<div style="padding:12px;color:#888;font-size:12px;">Ask me anything about your requirements, tests, or best practices...</div>' :
+        recent.map(m => '<div class="brain-msg ' + m.role + '">' + formatBrainMsg(m.text.length > 120 ? m.text.slice(0,120)+'…' : m.text) + '</div>').join('')) +
+    '</div>' +
+    '<div class="brain-bubble-input">' +
+      '<input id="brain-bubble-q" placeholder="Ask the Brain..." onkeydown="if(event.key===\'Enter\'){var v=this.value;this.value=\'\';sendBrainMessage(v);}" />' +
+      '<button onclick="var i=document.getElementById(\'brain-bubble-q\');sendBrainMessage(i.value);i.value=\'\';" style="background:#1A237E;color:#fff;">➤</button>' +
+    '</div>';
+  const msgs = document.getElementById('brain-bubble-msgs');
+  if (msgs) msgs.scrollTop = msgs.scrollHeight;
 }
 function selectReq(id) { STATE.selectedReqId = id; saveState(); render(); }
 function sendToGen(id) { STATE.selectedReqId = id; saveState(); setView('generator'); }
@@ -1068,13 +1557,15 @@ COMPLIANCE: ASPICE SWE.5/SWE.6 evidence-ready
   toast('Evidence pack downloaded ✓');
 }
 
-VIEWS.reports = () => `
+VIEWS.reports = () => {
+  const effort = calculateEffortSaved();
+  return `
   <div class="kpis">
     <div class="kpi"><div class="label">Req Quality</div><div class="value">82%</div></div>
     <div class="kpi"><div class="label">Test Coverage</div><div class="value">94%</div></div>
     <div class="kpi"><div class="label">Automation Ready</div><div class="value">78%</div></div>
     <div class="kpi"><div class="label">ASPICE Evidence</div><div class="value">96%</div></div>
-    <div class="kpi"><div class="label">Time Saved</div><div class="value">412h</div></div>
+    <div class="kpi"><div class="label">💰 Effort Saved</div><div class="value">${effort.totalHrs}h</div></div>
   </div>
   <div class="card">
     <h2>📊 Engineer Productivity (last 30 days)</h2>
@@ -1088,6 +1579,20 @@ VIEWS.reports = () => `
     </table>
   </div>
   <div class="card">
+    <h2>💰 ROI Dashboard — Effort Saved This Project</h2>
+    <div style="font-size:22px;font-weight:700;color:#1A237E;margin-bottom:6px;">${effort.totalHrs} engineer-hours saved</div>
+    <div style="color:#555;margin-bottom:14px;">≈ ${effort.days} working days &nbsp;·&nbsp; ≈ $${effort.dollars.toLocaleString()} at $100/hr</div>
+    <div class="roi-line"><span class="lbl">🩺 Requirements linted</span><span class="val">${Math.round(effort.reqMins/60)} hrs (${effort.reqs} reqs × 30 min)</span></div>
+    <div class="roi-line"><span class="lbl">⚙️ Test cases generated</span><span class="val">${Math.round(effort.testMins/60)} hrs (${effort.tests} tests × 150 min)</span></div>
+    <div class="roi-line"><span class="lbl">📜 Scripts auto-generated</span><span class="val">${Math.round(effort.scriptMins/60)} hrs (${effort.scripts} scripts)</span></div>
+    <div class="roi-line"><span class="lbl">🔗 Traceability links</span><span class="val">${Math.round(effort.traceMins/60)} hrs (${effort.traces} links)</span></div>
+    <div class="roi-line"><span class="lbl">📋 ASPICE evidence pack</span><span class="val">${Math.round(effort.auditMins/60)} hrs (1 export)</span></div>
+    <div style="margin-top:12px;font-size:12px;color:#888;">Velocity: ~${Math.round(effort.reqs/Math.max(effort.days,1)*10)/10} reqs/day with TestForge vs 1.2 reqs/day manually</div>
+    <div class="actions" style="margin-top:12px;">
+      <button class="primary" onclick="exportROIReport()">📄 Export ROI Report</button>
+    </div>
+  </div>
+  <div class="card">
     <h2>📑 Available Reports</h2>
     <div class="actions">
       <button class="secondary" onclick="downloadFile('req_quality.txt','Requirement Quality Report\\nAverage score: 82%')">📄 Requirement Quality</button>
@@ -1095,9 +1600,305 @@ VIEWS.reports = () => `
       <button class="secondary" onclick="downloadFile('aspice.txt','ASPICE SWE.5/SWE.6 Evidence Pack\\n96% compliance')">📄 ASPICE Evidence</button>
       <button class="secondary" onclick="downloadFile('iso26262.txt','ISO 26262 Trace Report')">📄 ISO 26262 Trace</button>
       <button class="secondary" onclick="downloadFile('productivity.txt','Productivity Report\\n412h saved')">📄 Productivity</button>
+      <button class="secondary" onclick="exportAllJiraCSV()">🎫 Bulk Jira CSV</button>
     </div>
   </div>
+  `;
+};
+
+function exportROIReport() {
+  const e = calculateEffortSaved();
+  const content = `TESTFORGE AI — ROI REPORT
+Generated: ${new Date().toISOString()}
+Project: EV Cluster Program
+${'='.repeat(50)}
+
+💰 EFFORT SAVED THIS PROJECT
+${'─'.repeat(50)}
+Total: ${e.totalHrs} engineer-hours saved
+       ≈ ${e.days} working days
+       ≈ $${e.dollars.toLocaleString()} at $100/hr
+
+Breakdown:
+  🩺 Requirements linted      ${Math.round(e.reqMins/60)} hrs   (${e.reqs} reqs × 30 min)
+  ⚙️  Test cases generated     ${Math.round(e.testMins/60)} hrs  (${e.tests} tests × 150 min)
+  📜 Scripts auto-generated   ${Math.round(e.scriptMins/60)} hrs  (${e.scripts} scripts)
+  🔗 Traceability links       ${Math.round(e.traceMins/60)} hrs  (${e.traces} links)
+  📋 ASPICE evidence pack     ${Math.round(e.auditMins/60)} hrs  (1 export)
+
+Velocity: ~${Math.round(e.reqs/Math.max(e.days,1)*10)/10} reqs/day vs 1.2 reqs/day manually
 `;
+  downloadFile('roi_report.txt', content);
+  toast('ROI report exported ✓');
+}
+
+/* ========================  NEW v2.0 VIEWS  ======================== */
+
+VIEWS.translator = () => {
+  const oems = Object.keys(OEM_TERMBASE);
+  const opts = oems.map(o => `<option value="${o}">${o}</option>`).join('');
+  return `
+  <div class="card">
+    <h2>🌐 Multi-OEM Translator</h2>
+    <div class="translator-cols">
+      <div>
+        <label class="form-label">Source OEM</label>
+        <select id="trans-src">${opts}</select>
+      </div>
+      <div style="display:flex;align-items:flex-end;padding-bottom:2px;">
+        <button class="secondary" onclick="swapOEMs()" title="Swap">🔄</button>
+      </div>
+      <div>
+        <label class="form-label">Target OEM</label>
+        <select id="trans-tgt">${oems.map((o,i)=>`<option value="${o}" ${i===1?'selected':''}>${o}</option>`).join('')}</select>
+      </div>
+    </div>
+    <label class="form-label">Source Text</label>
+    <textarea id="trans-input" rows="5" placeholder="Paste requirement or text to translate..."></textarea>
+    <div class="actions">
+      <button class="primary" onclick="runTranslation()">🌐 Translate</button>
+      <button class="secondary" onclick="bulkTranslateAll()">📋 Translate ALL Requirements</button>
+    </div>
+  </div>
+
+  <div class="card" id="trans-output-card" style="display:none;">
+    <h2>📤 Translated Output</h2>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
+      <div>
+        <div style="font-size:11px;color:#888;text-transform:uppercase;margin-bottom:4px;">Original</div>
+        <pre id="trans-original" style="background:#f9fafc;color:#333;border:1px solid #eee;padding:12px;"></pre>
+      </div>
+      <div>
+        <div style="font-size:11px;color:#888;text-transform:uppercase;margin-bottom:4px;">Translated</div>
+        <pre id="trans-result" style="background:#f9fafc;color:#333;border:1px solid #eee;padding:12px;"></pre>
+      </div>
+    </div>
+    <h3>📖 Glossary Changes</h3>
+    <table class="glossary-table">
+      <tr><th>Source Term</th><th>→</th><th>Target Term</th></tr>
+      <tbody id="trans-glossary"></tbody>
+    </table>
+    <div class="actions">
+      <button class="primary" onclick="copyTranslation()">📋 Copy</button>
+      <button class="secondary" onclick="downloadFile('translated.txt', document.getElementById('trans-result').textContent)">📥 Download</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>📚 OEM Termbase</h2>
+    ${Object.entries(OEM_TERMBASE).filter(([k])=>k!=='Generic').map(([oem,terms]) =>
+      '<details style="margin-bottom:6px;"><summary style="cursor:pointer;font-weight:700;color:#1A237E;">' + oem + ' (' + Object.keys(terms).length + ' terms)</summary>' +
+      '<table style="margin-top:6px;"><tr><th>Generic</th><th>' + oem + ' Term</th></tr>' +
+      Object.entries(terms).map(([g,t])=>'<tr><td>' + g + '</td><td><strong>' + t + '</strong></td></tr>').join('') +
+      '</table></details>').join('')}
+    <div class="actions" style="margin-top:8px;">
+      <button class="secondary" onclick="openAddTermModal()">+ Add Custom Term</button>
+    </div>
+  </div>
+  `;
+};
+
+function swapOEMs() {
+  const src = document.getElementById('trans-src');
+  const tgt = document.getElementById('trans-tgt');
+  if (!src || !tgt) return;
+  const tmp = src.value; src.value = tgt.value; tgt.value = tmp;
+}
+
+function copyTranslation() {
+  const el = document.getElementById('trans-result');
+  if (el && navigator.clipboard) {
+    navigator.clipboard.writeText(el.textContent).then(() => toast('Copied ✓'));
+  } else toast('Copy not supported in this browser', true);
+}
+
+function runTranslation() {
+  const text = (document.getElementById('trans-input') || {}).value || '';
+  if (!text.trim()) return toast('Enter text to translate', true);
+  const src = document.getElementById('trans-src').value;
+  const tgt = document.getElementById('trans-tgt').value;
+  const { translated, changes } = translateText(text, src, tgt);
+  document.getElementById('trans-original').textContent = text;
+  document.getElementById('trans-result').textContent = translated;
+  const tbody = document.getElementById('trans-glossary');
+  tbody.innerHTML = changes.length
+    ? changes.map(c => '<tr><td>' + c.from + '</td><td>→</td><td><strong>' + c.to + '</strong></td></tr>').join('')
+    : '<tr><td colspan="3" style="color:#888;">No term replacements found for this OEM pair.</td></tr>';
+  document.getElementById('trans-output-card').style.display = 'block';
+  toast('Translation complete ✓');
+}
+
+function bulkTranslateAll() {
+  const tgt = document.getElementById('trans-tgt') ? document.getElementById('trans-tgt').value : 'BMW';
+  const translated = STATE.requirements.map(req => {
+    const { translated: t } = translateText(req.text, 'Generic', tgt);
+    return Object.assign({}, req, { text: t, id: req.id + '_' + tgt });
+  });
+  STATE.translatedRequirements[tgt] = translated;
+  saveState();
+  toast('Bulk translate complete — ' + translated.length + ' requirements → ' + tgt + ' ✓');
+}
+
+function openAddTermModal() {
+  openModal('<h2>+ Add Custom Term</h2>' +
+    '<label class="form-label">OEM</label><select id="ct-oem">' + Object.keys(OEM_TERMBASE).map(o=>'<option>'+o+'</option>').join('') + '</select>' +
+    '<label class="form-label">Generic Term</label><input id="ct-generic" placeholder="e.g. cluster"/>' +
+    '<label class="form-label">OEM-Specific Term</label><input id="ct-specific" placeholder="e.g. Kombi"/>' +
+    '<div class="actions"><button class="primary" onclick="addCustomTerm()">Add</button><button class="secondary" onclick="closeModal()">Cancel</button></div>');
+}
+
+function addCustomTerm() {
+  const oem = document.getElementById('ct-oem').value;
+  const generic = document.getElementById('ct-generic').value.trim();
+  const specific = document.getElementById('ct-specific').value.trim();
+  if (!generic || !specific) return toast('Both fields required', true);
+  if (!STATE.customTermbase[oem]) STATE.customTermbase[oem] = {};
+  STATE.customTermbase[oem][generic] = specific;
+  saveState(); closeModal(); toast('Custom term added ✓');
+}
+
+VIEWS.predictor = () => {
+  const reqs = STATE.requirements;
+  const risks = reqs.map(r => ({ req: r, score: calculateRisk(r) })).sort((a,b) => b.score - a.score);
+  const high = risks.filter(r => r.score >= 70).length;
+  const med  = risks.filter(r => r.score >= 40 && r.score < 70).length;
+  const low  = risks.filter(r => r.score < 40).length;
+  const avg  = risks.length ? Math.round(risks.reduce((s,r)=>s+r.score,0)/risks.length) : 0;
+  // Save snapshot to history (debounce: only if no entry in the last hour)
+  const now = Date.now();
+  const lastSnap = STATE.riskHistory[STATE.riskHistory.length - 1];
+  if (!lastSnap || (now - lastSnap.ts) > 60 * 60 * 1000) {
+    STATE.riskHistory.push({ ts: now, avg });
+    if (STATE.riskHistory.length > 30) STATE.riskHistory.shift();
+    saveState();
+  }
+  return `
+  <div class="kpis">
+    <div class="kpi"><div class="label">🔴 High Risk</div><div class="value">${high}</div><div class="delta">≥ 70% risk</div></div>
+    <div class="kpi"><div class="label">🟡 Medium Risk</div><div class="value">${med}</div><div class="delta">40–69% risk</div></div>
+    <div class="kpi"><div class="label">🟢 Low Risk</div><div class="value">${low}</div><div class="delta">&lt; 40% risk</div></div>
+    <div class="kpi"><div class="label">📊 Avg Risk Score</div><div class="value">${avg}%</div><div class="delta">${avg>=70?'🔴 High':avg>=40?'🟡 Medium':'🟢 Low'}</div></div>
+  </div>
+
+  <div class="card">
+    <h2>📊 Risk Heat Map</h2>
+    <p style="font-size:12px;color:#888;margin-bottom:10px;">Click a bar to open that requirement.</p>
+    ${risks.map(({req,score}) => {
+      const cls = score >= 70 ? 'risk-high' : score >= 40 ? 'risk-medium' : 'risk-low';
+      const color = score >= 70 ? '#ef5350' : score >= 40 ? '#FFA726' : '#66BB6A';
+      return '<div class="risk-bar-wrap">' +
+        '<span style="min-width:70px;font-weight:600;font-size:12px;">' + req.id + '</span>' +
+        '<div class="risk-bar-bg" onclick="selectReq(\'' + req.id + '\');setView(\'requirements\')" title="' + req.title + '">' +
+        '<div class="risk-bar-fill ' + cls + '" style="width:' + score + '%"></div></div>' +
+        '<span style="min-width:40px;font-weight:700;color:' + color + ';">' + score + '%</span></div>';
+    }).join('')}
+  </div>
+
+  <div class="card">
+    <h2>⚠️ Risk Items Table</h2>
+    <div class="actions" style="margin-bottom:12px;">
+      <button class="primary" onclick="exportRiskReport()">📋 Export Risk Report</button>
+      <button class="secondary" onclick="openRiskSuggestionsModal()">💡 Get AI Suggestions</button>
+    </div>
+    <table>
+      <tr><th>Req ID</th><th>Title</th><th>Risk Score</th><th>Top Risk Factor</th><th>Recommended Action</th></tr>
+      ${risks.map(({req,score}) => {
+        const cls = score>=70?'red':score>=40?'yellow':'green';
+        return '<tr class="clickable" onclick="selectReq(\'' + req.id + '\');setView(\'requirements\')">' +
+          '<td><b>' + req.id + '</b></td><td>' + req.title + '</td>' +
+          '<td><span class="badge ' + cls + '">' + score + '%</span></td>' +
+          '<td style="font-size:12px;">' + topRiskFactor(req) + '</td>' +
+          '<td style="font-size:12px;color:#555;">' + riskAction(req) + '</td></tr>';
+      }).join('')}
+    </table>
+  </div>
+  `;
+};
+
+function exportRiskReport() {
+  const risks = STATE.requirements.map(r => ({ req: r, score: calculateRisk(r) })).sort((a,b) => b.score - a.score);
+  const lines = ['TESTFORGE AI — RISK REPORT', 'Generated: ' + new Date().toISOString(), '='.repeat(50), ''];
+  risks.forEach(({req,score}) => {
+    lines.push(req.id + ' | ' + req.title);
+    lines.push('  Risk Score: ' + score + '% (' + (score>=70?'HIGH':score>=40?'MEDIUM':'LOW') + ')');
+    lines.push('  Top Factor: ' + topRiskFactor(req));
+    lines.push('  Action: ' + riskAction(req));
+    lines.push('');
+  });
+  downloadFile('risk_report.txt', lines.join('\n'));
+  toast('Risk report exported ✓');
+}
+
+function openRiskSuggestionsModal() {
+  const risks = STATE.requirements.map(r => ({ req:r, score:calculateRisk(r) }))
+    .filter(({score}) => score >= 40).sort((a,b) => b.score - a.score).slice(0,5);
+  const html = '<h2>💡 AI Risk Reduction Suggestions</h2><div style="font-size:13px;">' +
+    (risks.length ? risks.map(({req,score},i) =>
+      '<div style="margin-bottom:12px;padding:10px;background:#f9fafc;border-left:3px solid ' + (score>=70?'#ef5350':'#FFA726') + ';border-radius:4px;">' +
+      '<b>' + (i+1) + '. ' + req.id + '</b> — Risk: ' + score + '%<br>' +
+      '<span style="color:#555;">Action: ' + riskAction(req) + '</span></div>').join('')
+    : '<p style="color:#888;">No high-risk items found. Great job!</p>') +
+    '</div><div class="actions"><button class="secondary" onclick="closeModal()">Close</button></div>';
+  openModal(html);
+}
+
+VIEWS.brain = () => {
+  const quickPrompts = ['Explain my requirements','Suggest improvements','Why did TC_003 fail?','Generate edge cases','Summarize project','Best practice for CAPL'];
+  const msgs = STATE.brainHistory;
+  const msgsHtml = msgs.length === 0
+    ? '<div style="padding:20px;color:#888;text-align:center;font-size:13px;">👋 Hello! I\'m the TestForge AI Brain — running fully offline.<br>Ask me about requirements, tests, edge cases, or best practices.<br><br><span style="color:#1A237E;font-weight:600;">Try: "explain CLU_001" or "why did TC_003 fail?"</span></div>'
+    : msgs.map(m =>
+        '<div style="display:flex;' + (m.role==='user'?'justify-content:flex-end;':'justify-content:flex-start;') + 'margin-bottom:10px;">' +
+        '<div class="brain-msg ' + m.role + '">' + formatBrainMsg(m.text) + '</div></div>'
+      ).join('');
+  return `
+  <div class="card" style="max-width:800px;margin:0 auto;">
+    <div class="brain-status" style="border-radius:8px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;">
+      <span>🟢 Running Locally &nbsp;·&nbsp; Privacy-Safe &nbsp;·&nbsp; No Data Sent &nbsp;·&nbsp; Air-Gapped</span>
+      <button class="secondary" style="font-size:11px;padding:3px 10px;" onclick="STATE.brainHistory=[];saveState();setView('brain');toast('History cleared ✓')">🗑 Clear History</button>
+    </div>
+    <h2>🧠 AI Brain — Local Intelligence</h2>
+    <div id="brain-chat" style="height:380px;overflow-y:auto;padding:8px;background:#fafbff;border:1px solid #eee;border-radius:8px;margin-bottom:12px;">
+      ${msgsHtml}
+    </div>
+    <div style="margin-bottom:10px;">
+      <div style="font-size:11px;color:#888;margin-bottom:4px;">Quick Prompts:</div>
+      ${quickPrompts.map(p => '<span class="brain-chip" onclick="document.getElementById(\'brain-input\').value=\'' + p.replace(/'/g,"\\'") + '\'">' + p + '</span>').join('')}
+    </div>
+    <div style="display:flex;gap:8px;">
+      <input id="brain-input" style="flex:1;" placeholder="Ask the Brain anything about your project..."
+             onkeydown="if(event.key==='Enter'){sendBrainMessageFromView();}" />
+      <button class="primary" onclick="sendBrainMessageFromView()">➤ Send</button>
+    </div>
+  </div>
+  `;
+};
+
+function sendBrainMessageFromView() {
+  const input = document.getElementById('brain-input');
+  if (!input || !input.value.trim()) return;
+  const q = input.value.trim();
+  input.value = '';
+  STATE.brainHistory.push({ role:'user', text:q, timestamp:Date.now() });
+  saveState();
+  // Show typing indicator
+  const chat = document.getElementById('brain-chat');
+  if (chat) {
+    const typing = document.createElement('div');
+    typing.id = 'brain-typing';
+    typing.style.cssText = 'display:flex;justify-content:flex-start;margin-bottom:10px;';
+    typing.innerHTML = '<div class="brain-msg ai"><div class="typing-dots"><span>●</span><span>●</span><span>●</span></div></div>';
+    chat.appendChild(typing);
+    chat.scrollTop = chat.scrollHeight;
+  }
+  setTimeout(() => {
+    const response = processLLMQuery(q);
+    STATE.brainHistory.push({ role:'ai', text:response, timestamp:Date.now() });
+    saveState();
+    setView('brain');
+    renderBrainBubble();
+  }, 600);
+}
 
 VIEWS.admin = () => `
   <div class="card">
@@ -1166,6 +1967,7 @@ function attachHandlers() {
 
 document.querySelectorAll('#topnav button').forEach(b => b.onclick = () => setView(b.dataset.view));
 setView('dashboard');
+renderBrainBubble();
 </script>
 
 </body>
